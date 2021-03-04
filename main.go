@@ -81,83 +81,81 @@ func Login() (*http.Client, *OnError) {
 }
 
 func addCookies(client *http.Client, CookieURL *url.URL) {
-	expire := time.Now().Add(time.Hour * 24 * 180)
-	expire.Format("2006-01-02T15:04:05.999Z07:00")
-	creation := time.Now().Format("2006-01-02T15:04:05.999Z07:00")
-	lastUsed := time.Now().Format("2006-01-02T15:04:05.999Z07:00")
-	rawcookie := fmt.Sprintf("arl=%s; expires=%v; %s creation=%v; lastAccessed=%v;",
-		cfg.UserToken,
-		expire,
-		"path=/; domain=deezer.com; max-age=15552000; httponly=true; hostonly=false;",
-		creation,
-		lastUsed)
-	cookies := []*http.Cookie{
-		{
-			Name:     "arl",
-			Value:    cfg.UserToken,
-			Expires:  expire,
-			MaxAge:   15552000,
-			Domain:   ".deezer.com",
-			Path:     "/",
-			HttpOnly: true,
-			Raw:      rawcookie,
-		},
-	}
-
-	client.Jar.SetCookies(CookieURL, cookies)
-
+   expire := time.Now().Add(time.Hour * 24 * 180)
+   expire.Format("2006-01-02T15:04:05.999Z07:00")
+   creation := time.Now().Format("2006-01-02T15:04:05.999Z07:00")
+   lastUsed := time.Now().Format("2006-01-02T15:04:05.999Z07:00")
+   rawcookie := fmt.Sprintf(
+      "arl=%s; expires=%v; %s creation=%v; lastAccessed=%v;",
+      cfg.UserToken,
+      expire,
+      "path=/; domain=deezer.com; max-age=15552000; httponly=true; hostonly=false;",
+      creation,
+      lastUsed
+   )
+   cookies := []*http.Cookie{{
+      Domain:   ".deezer.com",
+      Expires:  expire,
+      HttpOnly: true,
+      MaxAge:   15552000,
+      Name:     "arl",
+      Path:     "/",
+      Raw:      rawcookie,
+      Value:    cfg.UserToken,
+   }}
+   client.Jar.SetCookies(CookieURL, cookies)
 }
 
 // GetUrlDownload get the url for the requested track
 func GetUrlDownload(id string, client *http.Client) (string, string, *http.Client, *OnError) {
-	// fmt.Println("Getting Download url")
-	jsonTrack := &DeezTrack{}
-	APIToken, _ := GetToken(client)
-	jsonPrep := `{"sng_id":"` + id + `"}`
-	jsonStr := []byte(jsonPrep)
-	req, err := newRequest(APIUrl, "POST", jsonStr)
-	if err != nil {
-		return "", "", nil, &OnError{err, "Error during GetUrlDownload request"}
-	}
-
-	qs := url.Values{}
-	qs.Add("api_version", "1.0")
-	qs.Add("api_token", APIToken)
-	qs.Add("input", "3")
-	qs.Add("method", "deezer.pageTrack")
-	req.URL.RawQuery = qs.Encode()
-	resp, _ := client.Do(req)
-	body, _ := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	err = json.Unmarshal(body, &jsonTrack)
-	if err != nil {
-		return "", "", nil, &OnError{err, "Error during GetUrlDownload Unmarshalling"}
-	}
-	FileSize320, _ := jsonTrack.Results.DATA.FileSize320.Int64()
-	FileSize256, _ := jsonTrack.Results.DATA.FileSize256.Int64()
-	FileSize128, _ := jsonTrack.Results.DATA.FileSize128.Int64()
-	var format string
-	switch {
-	case FileSize320 > 0:
-		format = "3"
-	case FileSize256 > 0:
-		format = "5"
-	case FileSize128 > 0:
-		format = "1"
-	default:
-		format = "8"
-	}
-	songID := jsonTrack.Results.DATA.ID.String()
-	md5Origin := jsonTrack.Results.DATA.MD5Origin
-	mediaVersion := jsonTrack.Results.DATA.MediaVersion.String()
-	songTitle := jsonTrack.Results.DATA.SngTitle
-	artName := jsonTrack.Results.DATA.ArtName
-	FName := fmt.Sprintf("%s - %s.mp3", songTitle, artName)
-	downloadURL, err := DecryptDownload(md5Origin, songID, format, mediaVersion)
-	if err != nil {
-		return "", "", nil, &OnError{err, "Error Getting DownloadUrl"}
-	}
-	return downloadURL, FName, client, nil
+   jsonTrack := &DeezTrack{}
+   APIToken, _ := GetToken(client)
+   jsonPrep := `{"sng_id":"` + id + `"}`
+   jsonStr := []byte(jsonPrep)
+   req, err := newRequest(APIUrl, "POST", jsonStr)
+   if err != nil {
+      return "", "", nil, &OnError{err, "Error during GetUrlDownload request"}
+   }
+   qs := url.Values{}
+   qs.Add("api_version", "1.0")
+   qs.Add("api_token", APIToken)
+   qs.Add("input", "3")
+   qs.Add("method", "deezer.pageTrack")
+   req.URL.RawQuery = qs.Encode()
+   resp, _ := client.Do(req)
+   body, _ := ioutil.ReadAll(resp.Body)
+   defer resp.Body.Close()
+   err = json.Unmarshal(body, &jsonTrack)
+   if err != nil {
+      return "", "", nil, &OnError{
+         err, "Error during GetUrlDownload Unmarshalling",
+      }
+   }
+   FileSize320, _ := jsonTrack.Results.DATA.FileSize320.Int64()
+   FileSize256, _ := jsonTrack.Results.DATA.FileSize256.Int64()
+   FileSize128, _ := jsonTrack.Results.DATA.FileSize128.Int64()
+   var format string
+   switch {
+   case FileSize320 > 0:
+      format = "3"
+   case FileSize256 > 0:
+      format = "5"
+   case FileSize128 > 0:
+      format = "1"
+   default:
+      format = "8"
+   }
+   songID := jsonTrack.Results.DATA.ID.String()
+   md5Origin := jsonTrack.Results.DATA.MD5Origin
+   mediaVersion := jsonTrack.Results.DATA.MediaVersion.String()
+   songTitle := jsonTrack.Results.DATA.SngTitle
+   artName := jsonTrack.Results.DATA.ArtName
+   FName := fmt.Sprintf("%s - %s.mp3", songTitle, artName)
+   downloadURL, err := DecryptDownload(md5Origin, songID, format, mediaVersion)
+   if err != nil {
+      return "", "", nil, &OnError{err, "Error Getting DownloadUrl"}
+   }
+   return downloadURL, FName, client, nil
 }
 
 // GetAudioFile gets the audio file from deezer server
