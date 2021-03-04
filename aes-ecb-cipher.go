@@ -1,13 +1,3 @@
-// Copyright 2013 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
-// Electronic Code Book (ECB) mode.
-
-// ECB provides confidentiality by assigning a fixed ciphertext block to each
-// plaintext block.
-
-// See NIST SP 800-38A, pp 08-09
 package main
 
 import (
@@ -99,22 +89,3 @@ func BFDecrypt(buf []byte, bfKey string) ([]byte, error) {
 	cbcDecrypter.CryptBlocks(buf, buf)
 	return buf, nil
 }
-
-// func main() {
-// 	key := []byte("jo6aey6haid2Teih")
-// 	plaintext := Pad([]byte("abc"))
-
-// 	if len(plaintext)%aes.BlockSize != 0 {
-// 		panic("plaintext is not a multiple of block size")
-// 	}
-
-// 	block, err := aes.NewCipher(key)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	ciphertext := make([]byte, len(plaintext))
-// 	mode := NewECBEncrypter(block)
-// 	mode.CryptBlocks(ciphertext, plaintext)
-// 	fmt.Printf("%x\n", ciphertext)
-// }

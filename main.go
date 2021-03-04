@@ -48,18 +48,14 @@ func Login() (*http.Client, *OnError) {
 	req, err := newRequest(APIUrl, "POST", nil)
 	args := []string{"null", "deezer.getUserData"}
 	req = addQs(req, args...)
-	debug("Header of First request in Login: %v", req.Header)
 	resp, err := client.Do(req)
 	body, _ := ioutil.ReadAll(resp.Body)
 	err = json.Unmarshal(body, &Deez)
 	if err != nil {
 		return nil, &OnError{err, "Error during getCheckFormLogin Unmarshalling"}
 	}
-
 	CookieURL, _ := url.Parse(Domain)
-	debug("Cookies in Login %v", client.Jar.Cookies(CookieURL))
 	resp.Body.Close()
-
 	form := url.Values{}
 	form.Add("type", "login")
 	form.Add("checkFormLogin", Deez.Results.CheckFormLogin)
@@ -70,9 +66,6 @@ func Login() (*http.Client, *OnError) {
 
 	req.Header.Set("Content-type", "application/x-www-form-urlencoded")
 	req.Header.Add("Content-Length", strconv.Itoa(len(form.Encode())))
-
-	debug("The Header of Login Request", req.Header)
-
 	resp, err = client.Do(req)
 	if err != nil {
 		return nil, &OnError{err, "Error during Login response"}
@@ -83,10 +76,7 @@ func Login() (*http.Client, *OnError) {
 	if err != nil {
 		return nil, &OnError{err, "Error During Login response Read Body"}
 	}
-	debug("The Login response Body %s", string(body))
 	if resp.StatusCode == 200 {
-		debug("Login Success!! the Cookies are: ", client.Jar.Cookies(CookieURL))
-		// Set the Cookie afte login succesfully
 		addCookies(client, CookieURL)
 		return client, nil
 	}
@@ -105,7 +95,6 @@ func addCookies(client *http.Client, CookieURL *url.URL) {
 		"path=/; domain=deezer.com; max-age=15552000; httponly=true; hostonly=false;",
 		creation,
 		lastUsed)
-	debug("Expire format in addCookies", expire)
 	cookies := []*http.Cookie{
 		{
 			Name:     "arl",
@@ -127,10 +116,7 @@ func addCookies(client *http.Client, CookieURL *url.URL) {
 func GetUrlDownload(id string, client *http.Client) (string, string, *http.Client, *OnError) {
 	// fmt.Println("Getting Download url")
 	jsonTrack := &DeezTrack{}
-
-	ParsedAPIUrl, _ := url.Parse(Domain)
 	APIToken, _ := GetToken(client)
-
 	jsonPrep := `{"sng_id":"` + id + `"}`
 	jsonStr := []byte(jsonPrep)
 	req, err := newRequest(APIUrl, "POST", jsonStr)
@@ -144,17 +130,9 @@ func GetUrlDownload(id string, client *http.Client) (string, string, *http.Clien
 	qs.Add("input", "3")
 	qs.Add("method", "deezer.pageTrack")
 	req.URL.RawQuery = qs.Encode()
-
-	debug("Cookies in the Request", req.Cookies())
-
 	resp, _ := client.Do(req)
 	body, _ := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
-
-	debug("Client Cookies after response %v", client.Jar.Cookies(ParsedAPIUrl))
-	debug("Client request Raw Url " + req.URL.String())
-	debug("Body of the resp in GetUrlDownload ", string(body))
-
 	err = json.Unmarshal(body, &jsonTrack)
 	if err != nil {
 		return "", "", nil, &OnError{err, "Error during GetUrlDownload Unmarshalling"}
@@ -179,14 +157,10 @@ func GetUrlDownload(id string, client *http.Client) (string, string, *http.Clien
 	songTitle := jsonTrack.Results.DATA.SngTitle
 	artName := jsonTrack.Results.DATA.ArtName
 	FName := fmt.Sprintf("%s - %s.mp3", songTitle, artName)
-	debug("(md5Origin: %v) (songID: %v) (format: %v) (mediaVersion:%v)",
-		md5Origin, songID, format, mediaVersion)
-
 	downloadURL, err := DecryptDownload(md5Origin, songID, format, mediaVersion)
 	if err != nil {
 		return "", "", nil, &OnError{err, "Error Getting DownloadUrl"}
 	}
-	debug("The Acquired Download Url:%s", downloadURL)
 	return downloadURL, FName, client, nil
 }
 
@@ -202,8 +176,6 @@ func GetAudioFile(downloadURL, id, FName string, client *http.Client) *OnError {
 	if err != nil {
 		return &OnError{err, "Error during GetAudioFile response"}
 	}
-	debug("GetAudioFile reposene Cookies: %v", resp.Cookies())
-	debug("GetAudioFile Response:%v", resp)
 	err = DecryptMedia(resp.Body, id, FName, resp.ContentLength)
 	if err != nil {
 		return &OnError{err, "Error during DecryptMedia"}
