@@ -54,14 +54,13 @@ type ResultList struct {
 }
 
 type TrackData struct {
+   ArtName      string `json:"ART_NAME"`
+   MD5Origin    string `json:"MD5_ORIGIN"`
+   SngTitle     string `json:"SNG_TITLE"`
+   FileSize256  int `json:"FILESIZE_MP3_256"`
+   FileSize320  int `json:"FILESIZE_MP3_320"`
    ID           json.Number `json:"SNG_ID"`
-   MD5Origin    string      `json:"MD5_ORIGIN"`
-   FileSize320  json.Number `json:"FILESIZE_MP3_320"`
-   FileSize256  json.Number `json:"FILESIZE_MP3_256"`
-   FileSize128  json.Number `json:"FILESIZE_MP3_128"`
    MediaVersion json.Number `json:"MEDIA_VERSION"`
-   SngTitle     string      `json:"SNG_TITLE"`
-   ArtName      string      `json:"ART_NAME"`
 }
 
 type ecb struct {
