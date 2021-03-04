@@ -1,44 +1,70 @@
 package main
 
-import "encoding/json"
+import (
+   "encoding/json"
+   "flag"
+   "fmt"
+   "os"
+)
 
-// OnError Includes both the error msg and the error itself
-type OnError struct {
-	Error   error
-	Message string
+var cfg = new(Config)
+
+func ErrorUsage() {
+   fmt.Println(`Guide: go-decrypt-deezer [--debug --id --usertoken`)
+   fmt.Println(`How Do I Get My UserToken?: https://notabug.org/RemixDevs/DeezloaderRemix/wiki/Login+via+userToken`)
+   fmt.Println(`Example: go-decrypt-deezer --id 3135556 --usertoken UserToken_here`)
+   flag.PrintDefaults()
+   os.Exit(1)
 }
 
-// ResultList The json struct for getting information for login
-type ResultList struct {
-	DeezToken      string `json:"checkForm,omitempty"`
-	CheckFormLogin string `json:"checkFormLogin,omitempty"`
+func init() {
+   flag.BoolVar(&cfg.Debug, "debug", false, "Turn on debuging mode.")
+   flag.StringVar(&cfg.UserToken, "usertoken", "", "Your Unique User Token")
+   flag.StringVar(&cfg.ID, "id", "", "Deezer Track ID")
+   flag.Parse()
+   if cfg.ID == "" {
+      fmt.Println("Error: Must have Deezer Track(Song) ID")
+      ErrorUsage()
+   }
 }
 
-// TrackData Json struct for getting the returned json data
-type TrackData struct {
-	ID           json.Number `json:"SNG_ID"`
-	MD5Origin    string      `json:"MD5_ORIGIN"`
-	FileSize320  json.Number `json:"FILESIZE_MP3_320"`
-	FileSize256  json.Number `json:"FILESIZE_MP3_256"`
-	FileSize128  json.Number `json:"FILESIZE_MP3_128"`
-	MediaVersion json.Number `json:"MEDIA_VERSION"`
-	SngTitle     string      `json:"SNG_TITLE"`
-	ArtName      string      `json:"ART_NAME"`
+type Config struct {
+   Debug     bool
+   ID        string
+   UserToken string
 }
 
-// DeezStruct Struct for Json Data for Login
-type DeezStruct struct {
-	Error   []string    `json:"error,omitempty"`
-	Results *ResultList `json:"results,omitempty"`
-}
-
-// Data Struct for getting track's json data
 type Data struct {
-	DATA *TrackData `json:"DATA"`
+   DATA *TrackData `json:"DATA"`
 }
 
-// DeezTrack is Entry Point of the json Data
+type DeezStruct struct {
+   Error   []string    `json:"error,omitempty"`
+   Results *ResultList `json:"results,omitempty"`
+}
+
 type DeezTrack struct {
-	Error   []string `json:"error,omitempty"`
-	Results *Data    `json:"results,omitempty"`
+   Error   []string `json:"error,omitempty"`
+   Results *Data    `json:"results,omitempty"`
+}
+
+type OnError struct {
+   Error   error
+   Message string
+}
+
+type ResultList struct {
+   DeezToken      string `json:"checkForm,omitempty"`
+   CheckFormLogin string `json:"checkFormLogin,omitempty"`
+}
+
+type TrackData struct {
+   ID           json.Number `json:"SNG_ID"`
+   MD5Origin    string      `json:"MD5_ORIGIN"`
+   FileSize320  json.Number `json:"FILESIZE_MP3_320"`
+   FileSize256  json.Number `json:"FILESIZE_MP3_256"`
+   FileSize128  json.Number `json:"FILESIZE_MP3_128"`
+   MediaVersion json.Number `json:"MEDIA_VERSION"`
+   SngTitle     string      `json:"SNG_TITLE"`
+   ArtName      string      `json:"ART_NAME"`
 }
