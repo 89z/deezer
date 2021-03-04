@@ -160,20 +160,17 @@ func GetUrlDownload(id string, client *http.Client) (string, string, *http.Clien
 
 // GetAudioFile gets the audio file from deezer server
 func GetAudioFile(downloadURL, id, FName string, client *http.Client) *OnError {
-	// fmt.Println("Gopher's getting the audio File")
-	req, err := newRequest(downloadURL, "GET", nil)
-	if err != nil {
-		return &OnError{err, "Error during GetAudioFile Get request"}
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return &OnError{err, "Error during GetAudioFile response"}
-	}
-	err = DecryptMedia(resp.Body, id, FName, resp.ContentLength)
-	if err != nil {
-		return &OnError{err, "Error during DecryptMedia"}
-	}
-	defer resp.Body.Close()
-	return nil
+   req, err := newRequest(downloadURL, "GET", nil)
+   if err != nil {
+      return &OnError{err, "Error during GetAudioFile Get request"}
+   }
+   resp, err := client.Do(req)
+   if err != nil {
+      return &OnError{err, "Error during GetAudioFile response"}
+   }
+   err = DecryptMedia(resp.Body, id, FName, resp.ContentLength)
+   if err != nil {
+      return &OnError{err, "Error during DecryptMedia"}
+   }
+   return resp.Body.Close()
 }
