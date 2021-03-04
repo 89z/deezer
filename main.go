@@ -1,15 +1,17 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"net/http/cookiejar"
-	"net/url"
-	"strconv"
-	"time"
+   "encoding/json"
+   "flag"
+   "fmt"
+   "io/ioutil"
+   "log"
+   "net/http"
+   "net/http/cookiejar"
+   "net/url"
+   "os"
+   "strconv"
+   "time"
 )
 
 const (
@@ -21,22 +23,6 @@ const (
 	Domain = "https://www.deezer.com"
 )
 
-func main() {
-	id := cfg.ID
-	client, err := Login()
-	if err != nil {
-		log.Fatalf("%s: %v", err.Message, err.Error)
-	}
-	downloadURL, FName, client, err := GetUrlDownload(id, client)
-	if err != nil {
-		log.Fatalf("%s: %v", err.Message, err.Error)
-	}
-
-	err = GetAudioFile(downloadURL, id, FName, client)
-	if err != nil {
-		log.Fatalf("%s and %v", err.Message, err.Error)
-	}
-}
 
 // Login will login the user with the provided credentials
 func Login() (*http.Client, *OnError) {
@@ -90,8 +76,9 @@ func Login() (*http.Client, *OnError) {
 		addCookies(client, CookieURL)
 		return client, nil
 	}
-	return nil, &OnError{err,
-		"Can't Login, resp status code is" + string(resp.StatusCode)}
+   return nil, &OnError{
+      err, fmt.Sprintf("Can't Login, resp status code is %v", resp.StatusCode),
+   }
 }
 
 func addCookies(client *http.Client, CookieURL *url.URL) {
@@ -210,4 +197,56 @@ func GetAudioFile(downloadURL, id, FName string, client *http.Client) *OnError {
 	}
 	defer resp.Body.Close()
 	return nil
+}
+
+type Config struct {
+	Debug     bool
+	ID        string
+	UserToken string
+}
+
+// Initial value of the config
+var cfg = &Config{
+	false,
+	"",
+	"",
+}
+
+func debug(msg string, params ...interface{}) {
+	if cfg.Debug {
+		fmt.Printf("\n"+msg+"\n\n", params...)
+	}
+}
+
+func ErrorUsage() {
+	fmt.Println(`Guide: go-decrypt-deezer [--debug --id --usertoken`)
+	fmt.Println(`How Do I Get My UserToken?: https://notabug.org/RemixDevs/DeezloaderRemix/wiki/Login+via+userToken`)
+	fmt.Println(`Example: go-decrypt-deezer --id 3135556 --usertoken UserToken_here`)
+	flag.PrintDefaults()
+	os.Exit(1)
+}
+
+func main() {
+	flag.BoolVar(&cfg.Debug, "debug", false, "Turn on debuging mode.")
+	flag.StringVar(&cfg.UserToken, "usertoken", "", "Your Unique User Token")
+	flag.StringVar(&cfg.ID, "id", "", "Deezer Track ID")
+	flag.Parse()
+	if cfg.ID == "" {
+		fmt.Println("Error: Must have Deezer Track(Song) ID")
+		ErrorUsage()
+	}
+	id := cfg.ID
+	client, err := Login()
+	if err != nil {
+		log.Fatalf("%s: %v", err.Message, err.Error)
+	}
+	downloadURL, FName, client, err := GetUrlDownload(id, client)
+	if err != nil {
+		log.Fatalf("%s: %v", err.Message, err.Error)
+	}
+
+	err = GetAudioFile(downloadURL, id, FName, client)
+	if err != nil {
+		log.Fatalf("%s and %v", err.Message, err.Error)
+	}
 }
