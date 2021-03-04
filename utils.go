@@ -16,8 +16,10 @@ import (
 )
 
 func newRequest(enPoint, method string, bodyEntity interface{}) (*http.Request, error) {
-   var req *http.Request
-   var err error
+   var (
+      err error
+      req *http.Request
+   )
    switch val := bodyEntity.(type) {
    case []byte:
       req, err = http.NewRequest(method, enPoint, bytes.NewBuffer(val))
@@ -68,26 +70,25 @@ func GetBlowFishKey(id string) string {
 }
 
 // GetToken get the login token
-func GetToken(client *http.Client) (string, *OnError) {
+func GetToken(client *http.Client) (string, error) {
    Deez := &DeezStruct{}
    args := []string{"null", "deezer.getUserData"}
    reqs, err := newRequest(APIUrl, "GET", nil)
    if err != nil {
-      return "", &OnError{err, "Error during GetToken GET request"}
+      return "", err
    }
    reqs = addQs(reqs, args...)
    resp, err := client.Do(reqs)
    if err != nil {
-      return "", &OnError{err, "Error during GetToken response"}
+      return "", err
    }
    defer resp.Body.Close()
    body, _ := ioutil.ReadAll(resp.Body)
    err = json.Unmarshal(body, &Deez)
    if err != nil {
-      return "", &OnError{err, "Error During Unmarshal"}
+      return "", err
    }
-   APIToken := Deez.Results.DeezToken
-   return APIToken, nil
+   return Deez.Results.DeezToken, nil
 }
 
 // DecryptDownload Get the encrypted download link

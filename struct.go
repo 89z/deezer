@@ -6,13 +6,8 @@ import (
    "crypto/cipher"
    "encoding/json"
    "errors"
-   "flag"
-   "fmt"
    "golang.org/x/crypto/blowfish"
-   "os"
 )
-
-var cfg = new(Config)
 
 func BFDecrypt(buf []byte, bfKey string) ([]byte, error) {
    decrypter, err := blowfish.NewCipher([]byte(bfKey)) // 8 bytes
@@ -28,26 +23,10 @@ func BFDecrypt(buf []byte, bfKey string) ([]byte, error) {
    return buf, nil
 }
 
-func ErrorUsage() {
-   fmt.Println("deezer --id 3135556 --usertoken UserToken_here")
-   flag.PrintDefaults()
-   os.Exit(1)
-}
-
 func Pad(src []byte) []byte {
    padding := aes.BlockSize - len(src)%aes.BlockSize
    padtext := bytes.Repeat([]byte{byte(padding)}, padding)
    return append(src, padtext...)
-}
-
-func init() {
-   flag.StringVar(&cfg.UserToken, "usertoken", "", "Your Unique User Token")
-   flag.StringVar(&cfg.ID, "id", "", "Deezer Track ID")
-   flag.Parse()
-   if cfg.ID == "" {
-      fmt.Println("Error: Must have Deezer Track(Song) ID")
-      ErrorUsage()
-   }
 }
 
 type Config struct {
@@ -67,11 +46,6 @@ type DeezStruct struct {
 type DeezTrack struct {
    Error   []string `json:"error,omitempty"`
    Results *Data    `json:"results,omitempty"`
-}
-
-type OnError struct {
-   Error   error
-   Message string
 }
 
 type ResultList struct {
