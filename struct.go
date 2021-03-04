@@ -15,11 +15,11 @@ import (
 var cfg = new(Config)
 
 func BFDecrypt(buf []byte, bfKey string) ([]byte, error) {
-   decrypter, err := blowfish.NewCipher([]byte(bfKey)) // 8bytes
+   decrypter, err := blowfish.NewCipher([]byte(bfKey)) // 8 bytes
    if err != nil {
       return nil, err
    }
-   IV := []byte{0, 1, 2, 3, 4, 5, 6, 7} //8 bytes
+   IV := []byte{0, 1, 2, 3, 4, 5, 6, 7} // 8 bytes
    if len(buf)%blowfish.BlockSize != 0 {
       return nil, errors.New("The Buf is not a multiple of 8")
    }
@@ -29,9 +29,7 @@ func BFDecrypt(buf []byte, bfKey string) ([]byte, error) {
 }
 
 func ErrorUsage() {
-   fmt.Println(`Guide: go-decrypt-deezer [--debug --id --usertoken`)
-   fmt.Println(`How Do I Get My UserToken?: https://notabug.org/RemixDevs/DeezloaderRemix/wiki/Login+via+userToken`)
-   fmt.Println(`Example: go-decrypt-deezer --id 3135556 --usertoken UserToken_here`)
+   fmt.Println("deezer --id 3135556 --usertoken UserToken_here")
    flag.PrintDefaults()
    os.Exit(1)
 }
@@ -43,7 +41,6 @@ func Pad(src []byte) []byte {
 }
 
 func init() {
-   flag.BoolVar(&cfg.Debug, "debug", false, "Turn on debuging mode.")
    flag.StringVar(&cfg.UserToken, "usertoken", "", "Your Unique User Token")
    flag.StringVar(&cfg.ID, "id", "", "Deezer Track ID")
    flag.Parse()
@@ -54,7 +51,6 @@ func init() {
 }
 
 type Config struct {
-   Debug     bool
    ID        string
    UserToken string
 }

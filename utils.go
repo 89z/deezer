@@ -6,7 +6,6 @@ import (
    "crypto/md5"
    "encoding/json"
    "fmt"
-   "github.com/pkg/errors"
    "io"
    "io/ioutil"
    "net/http"
@@ -131,18 +130,18 @@ func DecryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
          }
          buf := make([]byte, chunkSize) // The "chunk" of data
          if _, err = io.ReadFull(stream, buf); err != nil {
-            errc <- errors.Wrapf(err, "error at loop %v", i)
+            errc <- fmt.Errorf("loop %v %v", i, err)
          }
          if i%3 > 0 || chunkSize < 2048 {
             chunkString = buf
          } else { //Decrypt and then write to destBuffer
             chunkString, err = BFDecrypt(buf, bfKey)
             if err != nil {
-               errc <- errors.Wrapf(err, "error at loop %v", i)
+               errc <- fmt.Errorf("loop %v %v", i, err)
             }
          }
          if _, err := destBuffer.Write(chunkString); err != nil {
-            errc <- errors.Wrapf(err, "error at loop %v", i)
+            errc <- fmt.Errorf("loop %v %v", i, err)
          }
       }(i, position, streamLen, stream)
    }

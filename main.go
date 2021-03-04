@@ -21,20 +21,75 @@ const (
    Domain = "https://www.deezer.com"
 )
 
-func main() {
-   id := cfg.ID
-   client, err := Login()
+// GetAudioFile gets the audio file from deezer server
+func GetAudioFile(downloadURL, id, FName string, client *http.Client) *OnError {
+   req, err := newRequest(downloadURL, "GET", nil)
    if err != nil {
-      log.Fatalf("%s: %v", err.Message, err.Error)
+      return &OnError{err, "Error during GetAudioFile Get request"}
    }
-   downloadURL, FName, client, err := GetUrlDownload(id, client)
+   resp, err := client.Do(req)
    if err != nil {
-      log.Fatalf("%s: %v", err.Message, err.Error)
+      return &OnError{err, "Error during GetAudioFile response"}
    }
-   err = GetAudioFile(downloadURL, id, FName, client)
+   err = DecryptMedia(resp.Body, id, FName, resp.ContentLength)
    if err != nil {
-      log.Fatalf("%s and %v", err.Message, err.Error)
+      return &OnError{err, "Error during DecryptMedia"}
    }
+   return &OnError{
+      resp.Body.Close(), "Error during Close",
+   }
+}
+
+// GetUrlDownload get the url for the requested track
+func GetUrlDownload(id string, client *http.Client) (string, string, *http.Client, *OnError) {
+   jsonTrack := &DeezTrack{}
+   APIToken, _ := GetToken(client)
+   jsonPrep := `{"sng_id":"` + id + `"}`
+   jsonStr := []byte(jsonPrep)
+   req, err := newRequest(APIUrl, "POST", jsonStr)
+   if err != nil {
+      return "", "", nil, &OnError{err, "Error during GetUrlDownload request"}
+   }
+   qs := url.Values{}
+   qs.Add("api_version", "1.0")
+   qs.Add("api_token", APIToken)
+   qs.Add("input", "3")
+   qs.Add("method", "deezer.pageTrack")
+   req.URL.RawQuery = qs.Encode()
+   resp, _ := client.Do(req)
+   body, _ := ioutil.ReadAll(resp.Body)
+   defer resp.Body.Close()
+   err = json.Unmarshal(body, &jsonTrack)
+   if err != nil {
+      return "", "", nil, &OnError{
+         err, "Error during GetUrlDownload Unmarshalling",
+      }
+   }
+   FileSize320, _ := jsonTrack.Results.DATA.FileSize320.Int64()
+   FileSize256, _ := jsonTrack.Results.DATA.FileSize256.Int64()
+   FileSize128, _ := jsonTrack.Results.DATA.FileSize128.Int64()
+   var format string
+   switch {
+   case FileSize320 > 0:
+      format = "3"
+   case FileSize256 > 0:
+      format = "5"
+   case FileSize128 > 0:
+      format = "1"
+   default:
+      format = "8"
+   }
+   songID := jsonTrack.Results.DATA.ID.String()
+   md5Origin := jsonTrack.Results.DATA.MD5Origin
+   mediaVersion := jsonTrack.Results.DATA.MediaVersion.String()
+   songTitle := jsonTrack.Results.DATA.SngTitle
+   artName := jsonTrack.Results.DATA.ArtName
+   FName := fmt.Sprintf("%s - %s.mp3", songTitle, artName)
+   downloadURL, err := DecryptDownload(md5Origin, songID, format, mediaVersion)
+   if err != nil {
+      return "", "", nil, &OnError{err, "Error Getting DownloadUrl"}
+   }
+   return downloadURL, FName, client, nil
 }
 
 // Login will login the user with the provided credentials
@@ -91,7 +146,7 @@ func addCookies(client *http.Client, CookieURL *url.URL) {
       expire,
       "path=/; domain=deezer.com; max-age=15552000; httponly=true; hostonly=false;",
       creation,
-      lastUsed
+      lastUsed,
    )
    cookies := []*http.Cookie{{
       Domain:   ".deezer.com",
@@ -106,71 +161,18 @@ func addCookies(client *http.Client, CookieURL *url.URL) {
    client.Jar.SetCookies(CookieURL, cookies)
 }
 
-// GetUrlDownload get the url for the requested track
-func GetUrlDownload(id string, client *http.Client) (string, string, *http.Client, *OnError) {
-   jsonTrack := &DeezTrack{}
-   APIToken, _ := GetToken(client)
-   jsonPrep := `{"sng_id":"` + id + `"}`
-   jsonStr := []byte(jsonPrep)
-   req, err := newRequest(APIUrl, "POST", jsonStr)
+func main() {
+   id := cfg.ID
+   client, err := Login()
    if err != nil {
-      return "", "", nil, &OnError{err, "Error during GetUrlDownload request"}
+      log.Fatalf("%s: %v", err.Message, err.Error)
    }
-   qs := url.Values{}
-   qs.Add("api_version", "1.0")
-   qs.Add("api_token", APIToken)
-   qs.Add("input", "3")
-   qs.Add("method", "deezer.pageTrack")
-   req.URL.RawQuery = qs.Encode()
-   resp, _ := client.Do(req)
-   body, _ := ioutil.ReadAll(resp.Body)
-   defer resp.Body.Close()
-   err = json.Unmarshal(body, &jsonTrack)
+   downloadURL, FName, client, err := GetUrlDownload(id, client)
    if err != nil {
-      return "", "", nil, &OnError{
-         err, "Error during GetUrlDownload Unmarshalling",
-      }
+      log.Fatalf("%s: %v", err.Message, err.Error)
    }
-   FileSize320, _ := jsonTrack.Results.DATA.FileSize320.Int64()
-   FileSize256, _ := jsonTrack.Results.DATA.FileSize256.Int64()
-   FileSize128, _ := jsonTrack.Results.DATA.FileSize128.Int64()
-   var format string
-   switch {
-   case FileSize320 > 0:
-      format = "3"
-   case FileSize256 > 0:
-      format = "5"
-   case FileSize128 > 0:
-      format = "1"
-   default:
-      format = "8"
-   }
-   songID := jsonTrack.Results.DATA.ID.String()
-   md5Origin := jsonTrack.Results.DATA.MD5Origin
-   mediaVersion := jsonTrack.Results.DATA.MediaVersion.String()
-   songTitle := jsonTrack.Results.DATA.SngTitle
-   artName := jsonTrack.Results.DATA.ArtName
-   FName := fmt.Sprintf("%s - %s.mp3", songTitle, artName)
-   downloadURL, err := DecryptDownload(md5Origin, songID, format, mediaVersion)
+   err = GetAudioFile(downloadURL, id, FName, client)
    if err != nil {
-      return "", "", nil, &OnError{err, "Error Getting DownloadUrl"}
+      log.Fatalf("%s and %v", err.Message, err.Error)
    }
-   return downloadURL, FName, client, nil
-}
-
-// GetAudioFile gets the audio file from deezer server
-func GetAudioFile(downloadURL, id, FName string, client *http.Client) *OnError {
-   req, err := newRequest(downloadURL, "GET", nil)
-   if err != nil {
-      return &OnError{err, "Error during GetAudioFile Get request"}
-   }
-   resp, err := client.Do(req)
-   if err != nil {
-      return &OnError{err, "Error during GetAudioFile response"}
-   }
-   err = DecryptMedia(resp.Body, id, FName, resp.ContentLength)
-   if err != nil {
-      return &OnError{err, "Error during DecryptMedia"}
-   }
-   return resp.Body.Close()
 }
