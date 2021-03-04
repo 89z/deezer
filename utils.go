@@ -1,51 +1,49 @@
 package main
 
 import (
-	"bytes"
-	"crypto/aes"
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"net/http"
-	"net/url"
-	"os"
-	"strings"
-	"sync"
-
-	"github.com/pkg/errors"
+   "bytes"
+   "crypto/aes"
+   "crypto/md5"
+   "encoding/json"
+   "fmt"
+   "github.com/pkg/errors"
+   "io"
+   "io/ioutil"
+   "net/http"
+   "net/url"
+   "os"
+   "strings"
+   "sync"
 )
 
 func newRequest(enPoint, method string, bodyEntity interface{}) (*http.Request, error) {
-	var req *http.Request
-	var err error
-	switch val := bodyEntity.(type) {
-	case []byte:
-		req, err = http.NewRequest(method, enPoint, bytes.NewBuffer(val))
-	case string:
-		req, err = http.NewRequest(method, enPoint, strings.NewReader(val))
-	default:
-		req, err = http.NewRequest(method, enPoint, nil)
-	}
-	if bodyEntity == nil {
-		req, err = http.NewRequest(method, enPoint, nil)
-	} else {
-
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.75 Safari/537.36")
-	req.Header.Add("Content-Language", "en-US")
-	req.Header.Add("Cache-Control", "max-age=0")
-	req.Header.Add("Accept", "*/*")
-	req.Header.Add("Accept-Charset", "utf-8,ISO-8859-1;q=0.7,*;q=0.3")
-	req.Header.Add("Accept-Language", "de-DE,de;q=0.8,en-US;q=0.6,en;q=0.4")
-	req.Header.Add("Content-type", "application/json")
-
-	return req, nil
+   var req *http.Request
+   var err error
+   switch val := bodyEntity.(type) {
+   case []byte:
+      req, err = http.NewRequest(method, enPoint, bytes.NewBuffer(val))
+   case string:
+      req, err = http.NewRequest(method, enPoint, strings.NewReader(val))
+   default:
+      req, err = http.NewRequest(method, enPoint, nil)
+   }
+   if bodyEntity == nil {
+      req, err = http.NewRequest(method, enPoint, nil)
+   }
+   if err != nil {
+      return nil, err
+   }
+   req.Header.Add(
+      "User-Agent",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.75 Safari/537.36",
+   )
+   req.Header.Add("Content-Language", "en-US")
+   req.Header.Add("Cache-Control", "max-age=0")
+   req.Header.Add("Accept", "*/*")
+   req.Header.Add("Accept-Charset", "utf-8,ISO-8859-1;q=0.7,*;q=0.3")
+   req.Header.Add("Accept-Language", "de-DE,de;q=0.8,en-US;q=0.6,en;q=0.4")
+   req.Header.Add("Content-type", "application/json")
+   return req, nil
 }
 
 func addQs(req *http.Request, args ...string) *http.Request {

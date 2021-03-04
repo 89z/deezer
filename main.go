@@ -139,52 +139,48 @@ func GetUrlDownload(id string, client *http.Client) (string, string, *http.Clien
 }
 
 func GetAudioFile(downloadURL, id, FName string, client *http.Client) error {
-req, err := newRequest(downloadURL, "GET", nil)
-if err != nil {
-return err
-}
-resp, err := client.Do(req)
-if err != nil {
-return err
-}
-err = DecryptMedia(resp.Body, id, FName, resp.ContentLength)
-if err != nil {
-return err
-}
-defer resp.Body.Close()
-return nil
+   req, err := newRequest(downloadURL, "GET", nil)
+   if err != nil {
+      return err
+   }
+   resp, err := client.Do(req)
+   if err != nil {
+      return err
+   }
+   err = DecryptMedia(resp.Body, id, FName, resp.ContentLength)
+   if err != nil {
+      return err
+   }
+   defer resp.Body.Close()
+   return nil
 }
 
 type Config struct {
-	ID        string
-	UserToken string
+   ID        string
+   UserToken string
 }
 
-var cfg = &Config{}
+var cfg = new(Config)
 
 func main() {
-	flag.StringVar(&cfg.UserToken, "usertoken", "", "Your Unique User Token")
-	flag.StringVar(&cfg.ID, "id", "", "Deezer Track ID")
-	flag.Parse()
-	if cfg.ID == "" {
-		fmt.Println("Error: Must have Deezer Track(Song) ID")
-	fmt.Println(`How Do I Get My UserToken?: https://notabug.org/RemixDevs/DeezloaderRemix/wiki/Login+via+userToken`)
-	fmt.Println(`Example: go-decrypt-deezer --id 3135556 --usertoken UserToken_here`)
-	flag.PrintDefaults()
-	os.Exit(1)
-	}
-	id := cfg.ID
-	client, err := Login()
-	if err != nil {
-         log.Fatal(err)
-	}
-	downloadURL, FName, client, err := GetUrlDownload(id, client)
-	if err != nil {
-         log.Fatal(err)
-	}
-
-	err = GetAudioFile(downloadURL, id, FName, client)
-	if err != nil {
-         log.Fatal(err)
-	}
+   flag.StringVar(&cfg.UserToken, "usertoken", "", "Your Unique User Token")
+   flag.StringVar(&cfg.ID, "id", "", "Deezer Track ID")
+   flag.Parse()
+   if cfg.ID == "" {
+      flag.PrintDefaults()
+      os.Exit(1)
+   }
+   id := cfg.ID
+   client, err := Login()
+   if err != nil {
+      log.Fatal(err)
+   }
+   downloadURL, FName, client, err := GetUrlDownload(id, client)
+   if err != nil {
+      log.Fatal(err)
+   }
+   err = GetAudioFile(downloadURL, id, FName, client)
+   if err != nil {
+      log.Fatal(err)
+   }
 }
