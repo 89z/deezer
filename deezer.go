@@ -41,15 +41,16 @@ func addQs(req *http.Request) *http.Request {
 }
 
 func blowfishDecrypt(buf []byte, bfKey string) ([]byte, error) {
-   decrypter, err := blowfish.NewCipher([]byte(bfKey)) // 8bytes
-   if err != nil {
-      return nil, err
-   }
-   IV := []byte{0, 1, 2, 3, 4, 5, 6, 7} //8 bytes
    if len(buf) % blowfish.BlockSize != 0 {
       return nil, fmt.Errorf("The Buf is not a multiple of 8")
    }
-   cipher.NewCBCDecrypter(decrypter, IV).CryptBlocks(buf, buf)
+   decrypter, err := blowfish.NewCipher([]byte(bfKey))
+   if err != nil {
+      return nil, err
+   }
+   cipher.NewCBCDecrypter(
+      decrypter, []byte{0, 1, 2, 3, 4, 5, 6, 7},
+   ).CryptBlocks(buf, buf)
    return buf, nil
 }
 
@@ -76,24 +77,28 @@ func decryptDownload(md5Origin, songID, format, version string) (string, error) 
 }
 
 func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
-   var wg sync.WaitGroup
-   chunkSize := 2048
-   bfKey := getBlowFishKey(id)
-   errc := make(chan error)
-   var err error
-   var destBuffer bytes.Buffer // final Product
+   var (
+      bfKey = getBlowFishKey(id)
+      chunkSize = 2048
+      destBuffer bytes.Buffer
+      errc = make(chan error)
+      wg sync.WaitGroup
+   )
    for position, i := 0, 0; position < int(streamLen); position, i = position+chunkSize, i+1 {
       func(i, position int, streamLen int64, stream io.Reader) {
-         var chunkString []byte
          if (int(streamLen) - position) >= 2048 {
             chunkSize = 2048
          } else {
             chunkSize = int(streamLen) - position
          }
          buf := make([]byte, chunkSize) // The "chunk" of data
-         if _, err = io.ReadFull(stream, buf); err != nil {
+         if _, err := io.ReadFull(stream, buf); err != nil {
             errc <- fmt.Errorf("loop %v %v", i, err)
          }
+         var (
+            chunkString []byte
+            err error
+         )
          if i % 3 > 0 || chunkSize < 2048 {
             chunkString = buf
          } else { //Decrypt and then write to destBuffer
@@ -109,7 +114,7 @@ func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
    }
    for {
       select {
-      case err = <-errc:
+      case err := <-errc:
          return err
       default:
          wg.Wait()
@@ -166,7 +171,10 @@ func getToken(client *http.Client) (string, error) {
       return "", err
    }
    defer resp.Body.Close()
-   body, _ := ioutil.ReadAll(resp.Body)
+   body, err := ioutil.ReadAll(resp.Body)
+   if err != nil {
+      return "", err
+   }
    err = json.Unmarshal(body, &Deez)
    if err != nil {
       return "", err
@@ -176,8 +184,10 @@ func getToken(client *http.Client) (string, error) {
 }
 
 func getUrl(id string, client *http.Client) (string, string, *http.Client, error) {
-   jsonTrack := &DeezTrack{}
-   APIToken, _ := getToken(client)
+   APIToken, err := getToken(client)
+   if err != nil {
+      return "", "", nil, err
+   }
    jsonPrep := `{"sng_id":"` + id + `"}`
    jsonStr := []byte(jsonPrep)
    req, err := newRequest(APIUrl, "POST", jsonStr)
@@ -190,48 +200,51 @@ func getUrl(id string, client *http.Client) (string, string, *http.Client, error
    qs.Set("input", "3")
    qs.Set("method", "deezer.pageTrack")
    req.URL.RawQuery = qs.Encode()
-   resp, _ := client.Do(req)
-   body, _ := ioutil.ReadAll(resp.Body)
+   resp, err := client.Do(req)
+   if err != nil {
+      return "", "", nil, err
+   }
+   body, err := ioutil.ReadAll(resp.Body)
+   if err != nil {
+      return "", "", nil, err
+   }
    defer resp.Body.Close()
+   var jsonTrack DeezTrack
    err = json.Unmarshal(body, &jsonTrack)
    if err != nil {
       return "", "", nil, err
    }
-   FileSize320, _ := jsonTrack.Results.DATA.FileSize320.Int64()
-   FileSize256, _ := jsonTrack.Results.DATA.FileSize256.Int64()
-   FileSize128, _ := jsonTrack.Results.DATA.FileSize128.Int64()
-   var format string
-   switch {
-   case FileSize320 > 0:
-      format = "3"
-   case FileSize256 > 0:
-      format = "5"
-   case FileSize128 > 0:
-      format = "1"
-   default:
-      format = "8"
-   }
-   songID := jsonTrack.Results.DATA.ID.String()
-   md5Origin := jsonTrack.Results.DATA.MD5Origin
-   mediaVersion := jsonTrack.Results.DATA.MediaVersion.String()
-   songTitle := jsonTrack.Results.DATA.SngTitle
-   artName := jsonTrack.Results.DATA.ArtName
-   FName := fmt.Sprintf("%s - %s.mp3", songTitle, artName)
-   downloadURL, err := decryptDownload(md5Origin, songID, format, mediaVersion)
+   downloadURL, err := decryptDownload(
+      jsonTrack.Results.DATA.MD5Origin,
+      jsonTrack.Results.DATA.ID.String(),
+      "3", // 320
+      jsonTrack.Results.DATA.MediaVersion,
+   )
    if err != nil {
       return "", "", nil, err
    }
-   return downloadURL, FName, client, nil
+   fName := fmt.Sprintf(
+      "%s - %s.mp3",
+      jsonTrack.Results.DATA.SngTitle,
+      jsonTrack.Results.DATA.ArtName,
+   )
+   return downloadURL, fName, client, nil
 }
 
 func login() (*http.Client, error) {
-   CookieJar, _ := cookiejar.New(nil)
-   client := &http.Client{Jar: CookieJar}
+   jar, err := cookiejar.New(nil)
+   if err != nil {
+      return nil, err
+   }
+   client := &http.Client{Jar: jar}
    Deez := &DeezStruct{}
    req, err := newRequest(APIUrl, "POST", nil)
    req = addQs(req)
    resp, err := client.Do(req)
-   body, _ := ioutil.ReadAll(resp.Body)
+   body, err := ioutil.ReadAll(resp.Body)
+   if err != nil {
+      return nil, err
+   }
    err = json.Unmarshal(body, &Deez)
    if err != nil {
       return nil, err
@@ -311,14 +324,11 @@ type ResultList struct {
 }
 
 type TrackData struct {
-   ArtName      string      `json:"ART_NAME"`
-   FileSize128  json.Number `json:"FILESIZE_MP3_128"`
-   FileSize256  json.Number `json:"FILESIZE_MP3_256"`
-   FileSize320  json.Number `json:"FILESIZE_MP3_320"`
+   ArtName      string `json:"ART_NAME"`
    ID           json.Number `json:"SNG_ID"`
-   MD5Origin    string      `json:"MD5_ORIGIN"`
-   MediaVersion json.Number `json:"MEDIA_VERSION"`
-   SngTitle     string      `json:"SNG_TITLE"`
+   MD5Origin    string `json:"MD5_ORIGIN"`
+   MediaVersion string `json:"MEDIA_VERSION"`
+   SngTitle     string `json:"SNG_TITLE"`
 }
 
 type ecb struct {
