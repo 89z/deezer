@@ -38,11 +38,11 @@ func addQs(req *http.Request) *http.Request {
    return req
 }
 
-func blowfishDecrypt(buf []byte, bfKey string) ([]byte, error) {
+func blowfishDecrypt(buf []byte, blowfishKey string) ([]byte, error) {
    if len(buf) % blowfish.BlockSize != 0 {
       return nil, fmt.Errorf("The Buf is not a multiple of 8")
    }
-   decrypter, err := blowfish.NewCipher([]byte(bfKey))
+   decrypter, err := blowfish.NewCipher([]byte(blowfishKey))
    if err != nil {
       return nil, err
    }
@@ -83,9 +83,13 @@ func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
    }
    defer create.Close()
    var (
-      bfKey = getBlowFishKey(id)
+      blowfishKey string
       chunkSize = 2048
+      idM5 = md5Hash(id)
    )
+   for i := 0; i < 16; i++ {
+      blowfishKey += string(idM5[i] ^ idM5[i + 16] ^ deezerCBC[i])
+   }
    for pos, i := 0, 0; pos < int(streamLen); pos, i = pos + chunkSize, i + 1 {
       if (int(streamLen) - pos) >= 2048 {
          chunkSize = 2048
@@ -101,7 +105,7 @@ func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
       if i % 3 > 0 || chunkSize < 2048 {
          chunk = buf
       } else {
-         chunk, err = blowfishDecrypt(buf, bfKey)
+         chunk, err = blowfishDecrypt(buf, blowfishKey)
          if err != nil {
             return fmt.Errorf("loop %v %v", i, err)
          }
@@ -131,16 +135,6 @@ func getAudioFile(downloadURL, id, FName string, client http.Client) error {
    return nil
 }
 
-func getBlowFishKey(id string) string {
-   var (
-      BFKey string
-      idM5 = md5Hash(id)
-   )
-   for i := 0; i < 16; i++ {
-      BFKey += string(idM5[i] ^ idM5[i + 16] ^ deezerCBC[i])
-   }
-   return BFKey
-}
 
 func getToken(client http.Client) (string, error) {
    reqs, err := newRequest(APIUrl, "GET", nil)
@@ -168,7 +162,7 @@ func getUrl(id string, client http.Client) (string, string, http.Client, error) 
       return "", "", http.Client{}, err
    }
    sng := []byte(
-      fmt.Sprintf(`{"sng_id": "%v"}`, id)
+      fmt.Sprintf(`{"sng_id": "%v"}`, id),
    )
    req, err := newRequest(APIUrl, "POST", sng)
    if err != nil {
@@ -257,25 +251,14 @@ func md5Hash(s string) string {
 }
 
 func newRequest(enPoint, method string, bodyEntity interface{}) (*http.Request, error) {
-   var (
-      err error
-      req *http.Request
-   )
    switch val := bodyEntity.(type) {
    case []byte:
-      req, err = http.NewRequest(method, enPoint, bytes.NewBuffer(val))
+      return http.NewRequest(method, enPoint, bytes.NewBuffer(val))
    case string:
-      req, err = http.NewRequest(method, enPoint, strings.NewReader(val))
+      return http.NewRequest(method, enPoint, strings.NewReader(val))
    default:
-      req, err = http.NewRequest(method, enPoint, nil)
+      return http.NewRequest(method, enPoint, nil)
    }
-   if bodyEntity == nil {
-      req, err = http.NewRequest(method, enPoint, nil)
-   }
-   if err != nil {
-      return nil, err
-   }
-   return req, nil
 }
 
 type Config struct {

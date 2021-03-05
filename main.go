@@ -14,16 +14,15 @@ func main() {
       flag.PrintDefaults()
       os.Exit(1)
    }
-   id := cfg.ID
    client, err := login()
    if err != nil {
       log.Fatal(err)
    }
-   downloadURL, FName, client, err := getUrl(id, client)
+   downloadURL, FName, client, err := getUrl(cfg.ID, client)
    if err != nil {
       log.Fatal(err)
    }
-   err = getAudioFile(downloadURL, id, FName, client)
+   err = getAudioFile(downloadURL, cfg.ID, FName, client)
    if err != nil {
       log.Fatal(err)
    }
