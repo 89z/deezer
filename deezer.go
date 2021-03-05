@@ -27,7 +27,10 @@ const (
    Domain = "https://www.deezer.com"
 )
 
-var cfg = new(Config)
+var (
+   cfg = new(Config)
+   deezerKey = []byte("jo6aey6haid2Teih")
+)
 
 func addCookies(client *http.Client, CookieURL *url.URL) {
    expire := time.Now().Add(time.Hour * 24 * 180)
@@ -70,15 +73,17 @@ func decryptDownload(md5Origin, songID, format, mediaVersion string) (string, er
    data := bytes.Replace([]byte(urlPart), []byte("¤"), []byte{164}, -1)
    md5SumVal := fmt.Sprintf("%x", md5.Sum(data))
    urlPart = md5SumVal + "¤" + urlPart + "¤"
-   key := []byte("jo6aey6haid2Teih")
-   plaintext := Pad(bytes.Replace([]byte(urlPart), []byte("¤"), []byte{164}, -1))
-   block, err := aes.NewCipher(key)
+   src := bytes.Replace([]byte(urlPart), []byte("¤"), []byte{164}, -1)
+   padding := aes.BlockSize - len(src) % aes.BlockSize
+   padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+   plaintext := append(src, padtext...)
+   block, err := aes.NewCipher(deezerKey)
    if err != nil {
       return "", err
    }
    encryptText := make([]byte, len(plaintext))
-   mode := NewECBEncrypter(block) // return ECB encryptor
-   mode.CryptBlocks(encryptText, plaintext)
+   mode := newECB(block) // return ECB encryptor
+   mode.cryptBlocks(encryptText, plaintext)
    return fmt.Sprintf(
       "https://e-cdns-proxy-%v.dzcdn.net/mobile/1/%x",
       md5Origin[:1],
@@ -108,7 +113,7 @@ func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
          if i % 3 > 0 || chunkSize < 2048 {
             chunkString = buf
          } else { //Decrypt and then write to destBuffer
-            chunkString, err = BFDecrypt(buf, bfKey)
+            chunkString, err = blowfishDecrypt(buf, bfKey)
             if err != nil {
                errc <- fmt.Errorf("loop %v %v", i, err)
             }
@@ -294,16 +299,6 @@ func newRequest(enPoint, method string, bodyEntity interface{}) (*http.Request, 
    if err != nil {
       return nil, err
    }
-   req.Header.Add(
-      "User-Agent",
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.75 Safari/537.36",
-   )
-   req.Header.Add("Content-Language", "en-US")
-   req.Header.Add("Cache-Control", "max-age=0")
-   req.Header.Add("Accept", "*/*")
-   req.Header.Add("Accept-Charset", "utf-8,ISO-8859-1;q=0.7,*;q=0.3")
-   req.Header.Add("Accept-Language", "de-DE,de;q=0.8,en-US;q=0.6,en;q=0.4")
-   req.Header.Add("Content-type", "application/json")
    return req, nil
 }
 

@@ -1,14 +1,13 @@
 package main
 
 import (
-   "bytes"
-   "crypto/aes"
    "crypto/cipher"
    "errors"
    "golang.org/x/crypto/blowfish"
 )
 
-func BFDecrypt(buf []byte, bfKey string) ([]byte, error) {
+
+func blowfishDecrypt(buf []byte, bfKey string) ([]byte, error) {
    decrypter, err := blowfish.NewCipher([]byte(bfKey)) // 8bytes
    if err != nil {
       return nil, err
@@ -21,67 +20,26 @@ func BFDecrypt(buf []byte, bfKey string) ([]byte, error) {
    return buf, nil
 }
 
-func Pad(src []byte) []byte {
-   padding := aes.BlockSize - len(src)%aes.BlockSize
-   padtext := bytes.Repeat([]byte{byte(padding)}, padding)
-   return append(src, padtext...)
-}
-
 type ecb struct {
-   b         cipher.Block
-   blockSize int
+   cipher.Block
 }
 
-func newECB(b cipher.Block) *ecb {
-   return &ecb{
-      b, b.BlockSize(),
-   }
+func newECB(b cipher.Block) ecb {
+   return ecb{b}
 }
 
-type ecbDecrypter ecb
-
-func NewECBDecrypter(b cipher.Block) cipher.BlockMode {
-   return (*ecbDecrypter)(newECB(b))
-}
-
-func (x *ecbDecrypter) BlockSize() int {
-   return x.blockSize
-}
-
-func (x *ecbDecrypter) CryptBlocks(dst, src []byte) {
-   if len(src)%x.blockSize != 0 {
-      panic("crypto/cipher: input not full blocks")
+func (x ecb) cryptBlocks(dst, src []byte) error {
+   size := x.BlockSize()
+   if len(src) % size != 0 {
+      return errors.New("crypto/cipher: input not full blocks")
    }
    if len(dst) < len(src) {
-      panic("crypto/cipher: output smaller than input")
+      return errors.New("crypto/cipher: output smaller than input")
    }
    for len(src) > 0 {
-      x.b.Decrypt(dst, src[:x.blockSize])
-      src = src[x.blockSize:]
-      dst = dst[x.blockSize:]
+      x.Encrypt(dst, src[:size])
+      src = src[size:]
+      dst = dst[size:]
    }
-}
-
-type ecbEncrypter ecb
-
-func NewECBEncrypter(b cipher.Block) cipher.BlockMode {
-   return (*ecbEncrypter)(newECB(b))
-}
-
-func (x *ecbEncrypter) BlockSize() int {
-   return x.blockSize
-}
-
-func (x *ecbEncrypter) CryptBlocks(dst, src []byte) {
-   if len(src)%x.blockSize != 0 {
-      panic("crypto/cipher: input not full blocks")
-   }
-   if len(dst) < len(src) {
-      panic("crypto/cipher: output smaller than input")
-   }
-   for len(src) > 0 {
-      x.b.Encrypt(dst, src[:x.blockSize])
-      src = src[x.blockSize:]
-      dst = dst[x.blockSize:]
-   }
+   return nil
 }
