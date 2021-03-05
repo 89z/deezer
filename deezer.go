@@ -8,9 +8,11 @@ import (
    "encoding/json"
    "fmt"
    "golang.org/x/crypto/blowfish"
+   "io"
    "net/http"
    "net/http/cookiejar"
    "net/url"
+   "os"
    "strings"
 )
 
@@ -70,6 +72,47 @@ func decryptDownload(md5Origin, songID, format, version string) (string, error) 
       md5Origin[:1],
       encryptText,
    ), nil
+}
+
+func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
+   var (
+      bfKey = getBlowFishKey(id)
+      chunkSize = 2048
+      destBuffer bytes.Buffer
+   )
+   for pos, i := 0, 0; pos < int(streamLen); pos, i = pos + chunkSize, i + 1 {
+      if (int(streamLen) - pos) >= 2048 {
+         chunkSize = 2048
+      } else {
+         chunkSize = int(streamLen) - pos
+      }
+      buf := make([]byte, chunkSize)
+      _, err := io.ReadFull(stream, buf)
+      if err != nil {
+         return fmt.Errorf("loop %v %v", i, err)
+      }
+      var chunkString []byte
+      if i % 3 > 0 || chunkSize < 2048 {
+         chunkString = buf
+      } else {
+         chunkString, err = blowfishDecrypt(buf, bfKey)
+         if err != nil {
+            return fmt.Errorf("loop %v %v", i, err)
+         }
+      }
+      _, err = destBuffer.Write(chunkString)
+      if err != nil {
+         return fmt.Errorf("loop %v %v", i, err)
+      }
+   }
+   out, err := os.Create(
+      strings.ReplaceAll(FName, "/", " "),
+   )
+   if err != nil {
+      return err
+   }
+   _, err = destBuffer.WriteTo(out)
+   return err
 }
 
 func getAudioFile(downloadURL, id, FName string, client *http.Client) error {
