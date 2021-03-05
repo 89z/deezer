@@ -3,9 +3,11 @@ package main
 import (
    "bytes"
    "crypto/aes"
+   "crypto/cipher"
    "crypto/md5"
    "encoding/json"
    "fmt"
+   "golang.org/x/crypto/blowfish"
    "io"
    "io/ioutil"
    "net/http"
@@ -17,19 +19,16 @@ import (
 )
 
 const (
-   // APIUrl is the deezer API
    APIUrl = "http://www.deezer.com/ajax/gw-light.php"
-   // LoginURL is the API for deezer login
    LoginURL = "https://www.deezer.com/ajax/action.php"
-   // deezer domain for cookie check
-   Domain = "https://www.deezer.com"
+   deezerAES = "jo6aey6haid2Teih"
+   deezerCBC = "g4el58wc0zvf9na1"
 )
 
 var (
    cfg = new(Config)
-   deezerKey = []byte("jo6aey6haid2Teih")
+   cookieURL = url.URL{Scheme: "https", Host: "www.deezer.com"}
 )
-
 
 func addQs(req *http.Request) *http.Request {
    qs := url.Values{}
@@ -41,6 +40,19 @@ func addQs(req *http.Request) *http.Request {
    return req
 }
 
+func blowfishDecrypt(buf []byte, bfKey string) ([]byte, error) {
+   decrypter, err := blowfish.NewCipher([]byte(bfKey)) // 8bytes
+   if err != nil {
+      return nil, err
+   }
+   IV := []byte{0, 1, 2, 3, 4, 5, 6, 7} //8 bytes
+   if len(buf) % blowfish.BlockSize != 0 {
+      return nil, fmt.Errorf("The Buf is not a multiple of 8")
+   }
+   cipher.NewCBCDecrypter(decrypter, IV).CryptBlocks(buf, buf)
+   return buf, nil
+}
+
 func decryptDownload(md5Origin, songID, format, version string) (string, error) {
    urlPart := md5Origin + "¤" + format + "¤" + songID + "¤" + version
    data := bytes.Replace([]byte(urlPart), []byte("¤"), []byte{164}, -1)
@@ -50,9 +62,9 @@ func decryptDownload(md5Origin, songID, format, version string) (string, error) 
    padding := aes.BlockSize - len(src) % aes.BlockSize
    padtext := bytes.Repeat([]byte{byte(padding)}, padding)
    plaintext := append(src, padtext...)
-   block, e := aes.NewCipher(deezerKey)
-   if e != nil {
-      return "", e
+   block, err := aes.NewCipher([]byte(deezerAES))
+   if err != nil {
+      return "", err
    }
    encryptText := make([]byte, len(plaintext))
    newECB(block).cryptBlocks(encryptText, plaintext)
@@ -68,7 +80,7 @@ func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
    chunkSize := 2048
    bfKey := getBlowFishKey(id)
    errc := make(chan error)
-   var e error
+   var err error
    var destBuffer bytes.Buffer // final Product
    for position, i := 0, 0; position < int(streamLen); position, i = position+chunkSize, i+1 {
       func(i, position int, streamLen int64, stream io.Reader) {
@@ -79,36 +91,36 @@ func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
             chunkSize = int(streamLen) - position
          }
          buf := make([]byte, chunkSize) // The "chunk" of data
-         if _, e = io.ReadFull(stream, buf); e != nil {
-            errc <- fmt.Errorf("loop %v %v", i, e)
+         if _, err = io.ReadFull(stream, buf); err != nil {
+            errc <- fmt.Errorf("loop %v %v", i, err)
          }
          if i % 3 > 0 || chunkSize < 2048 {
             chunkString = buf
          } else { //Decrypt and then write to destBuffer
-            chunkString, e = blowfishDecrypt(buf, bfKey)
-            if e != nil {
-               errc <- fmt.Errorf("loop %v %v", i, e)
+            chunkString, err = blowfishDecrypt(buf, bfKey)
+            if err != nil {
+               errc <- fmt.Errorf("loop %v %v", i, err)
             }
          }
-         if _, e := destBuffer.Write(chunkString); e != nil {
-            errc <- fmt.Errorf("loop %v %v", i, e)
+         if _, err := destBuffer.Write(chunkString); err != nil {
+            errc <- fmt.Errorf("loop %v %v", i, err)
          }
       }(i, position, streamLen, stream)
    }
    for {
       select {
-      case e = <-errc:
-         return e
+      case err = <-errc:
+         return err
       default:
          wg.Wait()
          NameWithoutSlash := strings.ReplaceAll(FName, "/", "∕")
-         out, e := os.Create(NameWithoutSlash)
-         if e != nil {
-            return e
+         out, err := os.Create(NameWithoutSlash)
+         if err != nil {
+            return err
          }
-         _, e = destBuffer.WriteTo(out)
-         if e != nil {
-            return e
+         _, err = destBuffer.WriteTo(out)
+         if err != nil {
+            return err
          }
          return nil
       }
@@ -116,49 +128,48 @@ func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
 }
 
 func getAudioFile(downloadURL, id, FName string, client *http.Client) error {
-   req, e := newRequest(downloadURL, "GET", nil)
-   if e != nil {
-      return e
+   req, err := newRequest(downloadURL, "GET", nil)
+   if err != nil {
+      return err
    }
-   resp, e := client.Do(req)
-   if e != nil {
-      return e
+   resp, err := client.Do(req)
+   if err != nil {
+      return err
    }
-   e = decryptMedia(resp.Body, id, FName, resp.ContentLength)
-   if e != nil {
-      return e
+   err = decryptMedia(resp.Body, id, FName, resp.ContentLength)
+   if err != nil {
+      return err
    }
    defer resp.Body.Close()
    return nil
 }
 
 func getBlowFishKey(id string) string {
-   Secret := "g4el58wc0zvf9na1"
    md5Sum := md5.Sum([]byte(id))
    idM5 := fmt.Sprintf("%x", md5Sum)
    var BFKey string
    for i := 0; i < 16; i++ {
-      BFKey += string(idM5[i] ^ idM5[i + 16] ^ Secret[i])
+      BFKey += string(idM5[i] ^ idM5[i + 16] ^ deezerCBC[i])
    }
    return BFKey
 }
 
 func getToken(client *http.Client) (string, error) {
    Deez := &DeezStruct{}
-   reqs, e := newRequest(APIUrl, "GET", nil)
-   if e != nil {
-      return "", e
+   reqs, err := newRequest(APIUrl, "GET", nil)
+   if err != nil {
+      return "", err
    }
    reqs = addQs(reqs)
-   resp, e := client.Do(reqs)
-   if e != nil {
-      return "", e
+   resp, err := client.Do(reqs)
+   if err != nil {
+      return "", err
    }
    defer resp.Body.Close()
    body, _ := ioutil.ReadAll(resp.Body)
-   e = json.Unmarshal(body, &Deez)
-   if e != nil {
-      return "", e
+   err = json.Unmarshal(body, &Deez)
+   if err != nil {
+      return "", err
    }
    APIToken := Deez.Results.DeezToken
    return APIToken, nil
@@ -169,9 +180,9 @@ func getUrl(id string, client *http.Client) (string, string, *http.Client, error
    APIToken, _ := getToken(client)
    jsonPrep := `{"sng_id":"` + id + `"}`
    jsonStr := []byte(jsonPrep)
-   req, e := newRequest(APIUrl, "POST", jsonStr)
-   if e != nil {
-      return "", "", nil, e
+   req, err := newRequest(APIUrl, "POST", jsonStr)
+   if err != nil {
+      return "", "", nil, err
    }
    qs := url.Values{}
    qs.Set("api_version", "1.0")
@@ -182,9 +193,9 @@ func getUrl(id string, client *http.Client) (string, string, *http.Client, error
    resp, _ := client.Do(req)
    body, _ := ioutil.ReadAll(resp.Body)
    defer resp.Body.Close()
-   e = json.Unmarshal(body, &jsonTrack)
-   if e != nil {
-      return "", "", nil, e
+   err = json.Unmarshal(body, &jsonTrack)
+   if err != nil {
+      return "", "", nil, err
    }
    FileSize320, _ := jsonTrack.Results.DATA.FileSize320.Int64()
    FileSize256, _ := jsonTrack.Results.DATA.FileSize256.Int64()
@@ -206,9 +217,9 @@ func getUrl(id string, client *http.Client) (string, string, *http.Client, error
    songTitle := jsonTrack.Results.DATA.SngTitle
    artName := jsonTrack.Results.DATA.ArtName
    FName := fmt.Sprintf("%s - %s.mp3", songTitle, artName)
-   downloadURL, e := decryptDownload(md5Origin, songID, format, mediaVersion)
-   if e != nil {
-      return "", "", nil, e
+   downloadURL, err := decryptDownload(md5Origin, songID, format, mediaVersion)
+   if err != nil {
+      return "", "", nil, err
    }
    return downloadURL, FName, client, nil
 }
@@ -217,59 +228,60 @@ func login() (*http.Client, error) {
    CookieJar, _ := cookiejar.New(nil)
    client := &http.Client{Jar: CookieJar}
    Deez := &DeezStruct{}
-   req, e := newRequest(APIUrl, "POST", nil)
+   req, err := newRequest(APIUrl, "POST", nil)
    req = addQs(req)
-   resp, e := client.Do(req)
+   resp, err := client.Do(req)
    body, _ := ioutil.ReadAll(resp.Body)
-   e = json.Unmarshal(body, &Deez)
-   if e != nil {
-      return nil, e
+   err = json.Unmarshal(body, &Deez)
+   if err != nil {
+      return nil, err
    }
-   CookieURL, _ := url.Parse(Domain)
    resp.Body.Close()
    form := url.Values{}
    form.Set("type", "login")
    form.Set("checkFormLogin", Deez.Results.CheckFormLogin)
-   req, e = newRequest(LoginURL, "POST", form.Encode())
-   if e != nil {
-      return nil, e
+   req, err = newRequest(LoginURL, "POST", form.Encode())
+   if err != nil {
+      return nil, err
    }
-   resp, e = client.Do(req)
-   if e != nil {
-      return nil, e
+   resp, err = client.Do(req)
+   if err != nil {
+      return nil, err
    }
    defer resp.Body.Close()
-   body, e = ioutil.ReadAll(resp.Body)
-   if e != nil {
-      return nil, e
+   body, err = ioutil.ReadAll(resp.Body)
+   if err != nil {
+      return nil, err
    }
    if resp.StatusCode == 200 {
       cookies := []*http.Cookie{{
          Name: "arl",
          Value: cfg.UserToken,
       }}
-      client.Jar.SetCookies(CookieURL, cookies)
+      client.Jar.SetCookies(&cookieURL, cookies)
       return client, nil
    }
-   return nil, fmt.Errorf("StatusCode %v %v", resp.StatusCode, e)
+   return nil, fmt.Errorf("StatusCode %v %v", resp.StatusCode, err)
 }
 
 func newRequest(enPoint, method string, bodyEntity interface{}) (*http.Request, error) {
-   var req *http.Request
-   var e error
+   var (
+      err error
+      req *http.Request
+   )
    switch val := bodyEntity.(type) {
    case []byte:
-      req, e = http.NewRequest(method, enPoint, bytes.NewBuffer(val))
+      req, err = http.NewRequest(method, enPoint, bytes.NewBuffer(val))
    case string:
-      req, e = http.NewRequest(method, enPoint, strings.NewReader(val))
+      req, err = http.NewRequest(method, enPoint, strings.NewReader(val))
    default:
-      req, e = http.NewRequest(method, enPoint, nil)
+      req, err = http.NewRequest(method, enPoint, nil)
    }
    if bodyEntity == nil {
-      req, e = http.NewRequest(method, enPoint, nil)
+      req, err = http.NewRequest(method, enPoint, nil)
    }
-   if e != nil {
-      return nil, e
+   if err != nil {
+      return nil, err
    }
    return req, nil
 }
@@ -307,4 +319,28 @@ type TrackData struct {
    MD5Origin    string      `json:"MD5_ORIGIN"`
    MediaVersion json.Number `json:"MEDIA_VERSION"`
    SngTitle     string      `json:"SNG_TITLE"`
+}
+
+type ecb struct {
+   cipher.Block
+}
+
+func newECB(b cipher.Block) ecb {
+   return ecb{b}
+}
+
+func (x ecb) cryptBlocks(dst, src []byte) error {
+   size := x.BlockSize()
+   if len(src) % size != 0 {
+      return fmt.Errorf("crypto/cipher: input not full blocks")
+   }
+   if len(dst) < len(src) {
+      return fmt.Errorf("crypto/cipher: output smaller than input")
+   }
+   for len(src) > 0 {
+      x.Encrypt(dst, src[:size])
+      src = src[size:]
+      dst = dst[size:]
+   }
+   return nil
 }
