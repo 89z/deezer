@@ -53,13 +53,13 @@ func blowfishDecrypt(buf []byte, bfKey string) ([]byte, error) {
 }
 
 func decryptDownload(md5Origin, songID, format, version string) (string, error) {
-   urlPart := md5Origin + "¤" + format + "¤" + songID + "¤" + version
-   data := bytes.Replace([]byte(urlPart), []byte("¤"), []byte{164}, -1)
-   md5SumVal := fmt.Sprintf("%x", md5.Sum(data))
-   urlPart = md5SumVal + "¤" + urlPart + "¤"
-   src := bytes.Replace([]byte(urlPart), []byte("¤"), []byte{164}, -1)
-   padding := aes.BlockSize - len(src) % aes.BlockSize
-   padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+   urlPart := md5Origin + "\xa4" + format + "\xa4" + songID + "\xa4" + version
+   src := []byte(
+      md5Hash(urlPart) + "\xa4" + urlPart + "\xa4",
+   )
+   padtext := bytes.Repeat(
+      []byte{0}, aes.BlockSize - len(src) % aes.BlockSize,
+   )
    plaintext := append(src, padtext...)
    block, err := aes.NewCipher([]byte(deezerAES))
    if err != nil {
@@ -75,10 +75,16 @@ func decryptDownload(md5Origin, songID, format, version string) (string, error) 
 }
 
 func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
+   create, err := os.Create(
+      strings.ReplaceAll(FName, "/", " "),
+   )
+   if err != nil {
+      return err
+   }
+   defer create.Close()
    var (
       bfKey = getBlowFishKey(id)
       chunkSize = 2048
-      destBuffer bytes.Buffer
    )
    for pos, i := 0, 0; pos < int(streamLen); pos, i = pos + chunkSize, i + 1 {
       if (int(streamLen) - pos) >= 2048 {
@@ -91,31 +97,24 @@ func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
       if err != nil {
          return fmt.Errorf("loop %v %v", i, err)
       }
-      var chunkString []byte
+      var chunk []byte
       if i % 3 > 0 || chunkSize < 2048 {
-         chunkString = buf
+         chunk = buf
       } else {
-         chunkString, err = blowfishDecrypt(buf, bfKey)
+         chunk, err = blowfishDecrypt(buf, bfKey)
          if err != nil {
             return fmt.Errorf("loop %v %v", i, err)
          }
       }
-      _, err = destBuffer.Write(chunkString)
+      _, err = create.Write(chunk)
       if err != nil {
          return fmt.Errorf("loop %v %v", i, err)
       }
    }
-   out, err := os.Create(
-      strings.ReplaceAll(FName, "/", " "),
-   )
-   if err != nil {
-      return err
-   }
-   _, err = destBuffer.WriteTo(out)
-   return err
+   return nil
 }
 
-func getAudioFile(downloadURL, id, FName string, client *http.Client) error {
+func getAudioFile(downloadURL, id, FName string, client http.Client) error {
    req, err := newRequest(downloadURL, "GET", nil)
    if err != nil {
       return err
@@ -133,22 +132,24 @@ func getAudioFile(downloadURL, id, FName string, client *http.Client) error {
 }
 
 func getBlowFishKey(id string) string {
-   md5Sum := md5.Sum([]byte(id))
-   idM5 := fmt.Sprintf("%x", md5Sum)
-   var BFKey string
+   var (
+      BFKey string
+      idM5 = md5Hash(id)
+   )
    for i := 0; i < 16; i++ {
       BFKey += string(idM5[i] ^ idM5[i + 16] ^ deezerCBC[i])
    }
    return BFKey
 }
 
-func getToken(client *http.Client) (string, error) {
+func getToken(client http.Client) (string, error) {
    reqs, err := newRequest(APIUrl, "GET", nil)
    if err != nil {
       return "", err
    }
-   reqs = addQs(reqs)
-   resp, err := client.Do(reqs)
+   resp, err := client.Do(
+      addQs(reqs),
+   )
    if err != nil {
       return "", err
    }
@@ -161,16 +162,17 @@ func getToken(client *http.Client) (string, error) {
    return deez.Results.DeezToken, nil
 }
 
-func getUrl(id string, client *http.Client) (string, string, *http.Client, error) {
+func getUrl(id string, client http.Client) (string, string, http.Client, error) {
    APIToken, err := getToken(client)
    if err != nil {
-      return "", "", nil, err
+      return "", "", http.Client{}, err
    }
-   jsonPrep := `{"sng_id":"` + id + `"}`
-   jsonStr := []byte(jsonPrep)
-   req, err := newRequest(APIUrl, "POST", jsonStr)
+   sng := []byte(
+      fmt.Sprintf(`{"sng_id": "%v"}`, id)
+   )
+   req, err := newRequest(APIUrl, "POST", sng)
    if err != nil {
-      return "", "", nil, err
+      return "", "", http.Client{}, err
    }
    qs := url.Values{}
    qs.Set("api_version", "1.0")
@@ -180,13 +182,13 @@ func getUrl(id string, client *http.Client) (string, string, *http.Client, error
    req.URL.RawQuery = qs.Encode()
    resp, err := client.Do(req)
    if err != nil {
-      return "", "", nil, err
+      return "", "", http.Client{}, err
    }
    defer resp.Body.Close()
    var jsonTrack DeezTrack
    err = json.NewDecoder(resp.Body).Decode(&jsonTrack)
    if err != nil {
-      return "", "", nil, err
+      return "", "", http.Client{}, err
    }
    downloadURL, err := decryptDownload(
       jsonTrack.Results.DATA.MD5Origin,
@@ -195,7 +197,7 @@ func getUrl(id string, client *http.Client) (string, string, *http.Client, error
       jsonTrack.Results.DATA.MediaVersion,
    )
    if err != nil {
-      return "", "", nil, err
+      return "", "", http.Client{}, err
    }
    fName := fmt.Sprintf(
       "%s - %s.mp3",
@@ -205,34 +207,35 @@ func getUrl(id string, client *http.Client) (string, string, *http.Client, error
    return downloadURL, fName, client, nil
 }
 
-func login() (*http.Client, error) {
+func login() (http.Client, error) {
    jar, err := cookiejar.New(nil)
    if err != nil {
-      return nil, err
+      return http.Client{}, err
    }
-   client := &http.Client{Jar: jar}
+   client := http.Client{Jar: jar}
    req, err := newRequest(APIUrl, "POST", nil)
-   req = addQs(req)
-   resp, err := client.Do(req)
+   resp, err := client.Do(
+      addQs(req),
+   )
    if err != nil {
-      return nil, err
+      return http.Client{}, err
    }
    defer resp.Body.Close()
    var deez DeezStruct
    err = json.NewDecoder(resp.Body).Decode(&deez)
    if err != nil {
-      return nil, err
+      return http.Client{}, err
    }
    form := url.Values{}
    form.Set("type", "login")
    form.Set("checkFormLogin", deez.Results.CheckFormLogin)
    req, err = newRequest(LoginURL, "POST", form.Encode())
    if err != nil {
-      return nil, err
+      return http.Client{}, err
    }
    resp, err = client.Do(req)
    if err != nil {
-      return nil, err
+      return http.Client{}, err
    }
    defer resp.Body.Close()
    if resp.StatusCode == 200 {
@@ -243,7 +246,14 @@ func login() (*http.Client, error) {
       client.Jar.SetCookies(&cookieURL, cookies)
       return client, nil
    }
-   return nil, fmt.Errorf("StatusCode %v %v", resp.StatusCode, err)
+   return http.Client{}, fmt.Errorf("StatusCode %v %v", resp.StatusCode, err)
+}
+
+func md5Hash(s string) string {
+   data := []byte(s)
+   return fmt.Sprintf(
+      "%x", md5.Sum(data),
+   )
 }
 
 func newRequest(enPoint, method string, bodyEntity interface{}) (*http.Request, error) {
