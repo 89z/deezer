@@ -23,7 +23,33 @@ const (
    Domain = "https://www.deezer.com"
 )
 
-func Login() (*http.Client, error) {
+func addCookies(client *http.Client, CookieURL *url.URL) {
+   expire := time.Now().Add(time.Hour * 24 * 180)
+   expire.Format("2006-01-02T15:04:05.999Z07:00")
+   creation := time.Now().Format("2006-01-02T15:04:05.999Z07:00")
+   lastUsed := time.Now().Format("2006-01-02T15:04:05.999Z07:00")
+   rawcookie := fmt.Sprintf(
+      "arl=%s; expires=%v; %s creation=%v; lastAccessed=%v;",
+      cfg.UserToken,
+      expire,
+      "path=/; domain=deezer.com; max-age=15552000; httponly=true; hostonly=false;",
+      creation,
+      lastUsed,
+   )
+   cookies := []*http.Cookie{{
+      Domain:   ".deezer.com",
+      Expires:  expire,
+      HttpOnly: true,
+      MaxAge:   15552000,
+      Name:     "arl",
+      Path:     "/",
+      Raw:      rawcookie,
+      Value:    cfg.UserToken,
+   }}
+   client.Jar.SetCookies(CookieURL, cookies)
+}
+
+func login() (*http.Client, error) {
    CookieJar, _ := cookiejar.New(nil)
    client := &http.Client{Jar: CookieJar}
    Deez := &DeezStruct{}
@@ -61,32 +87,6 @@ func Login() (*http.Client, error) {
       return client, nil
    }
    return nil, fmt.Errorf("StatusCode %v %v", resp.StatusCode, err)
-}
-
-func addCookies(client *http.Client, CookieURL *url.URL) {
-   expire := time.Now().Add(time.Hour * 24 * 180)
-   expire.Format("2006-01-02T15:04:05.999Z07:00")
-   creation := time.Now().Format("2006-01-02T15:04:05.999Z07:00")
-   lastUsed := time.Now().Format("2006-01-02T15:04:05.999Z07:00")
-   rawcookie := fmt.Sprintf(
-      "arl=%s; expires=%v; %s creation=%v; lastAccessed=%v;",
-      cfg.UserToken,
-      expire,
-      "path=/; domain=deezer.com; max-age=15552000; httponly=true; hostonly=false;",
-      creation,
-      lastUsed,
-   )
-   cookies := []*http.Cookie{{
-      Domain:   ".deezer.com",
-      Expires:  expire,
-      HttpOnly: true,
-      MaxAge:   15552000,
-      Name:     "arl",
-      Path:     "/",
-      Raw:      rawcookie,
-      Value:    cfg.UserToken,
-   }}
-   client.Jar.SetCookies(CookieURL, cookies)
 }
 
 func GetUrlDownload(id string, client *http.Client) (string, string, *http.Client, error) {
@@ -171,7 +171,7 @@ func main() {
       os.Exit(1)
    }
    id := cfg.ID
-   client, err := Login()
+   client, err := login()
    if err != nil {
       log.Fatal(err)
    }
