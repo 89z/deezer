@@ -8,14 +8,10 @@ import (
    "encoding/json"
    "fmt"
    "golang.org/x/crypto/blowfish"
-   "io"
-   "io/ioutil"
    "net/http"
    "net/http/cookiejar"
    "net/url"
-   "os"
    "strings"
-   "sync"
 )
 
 const (
@@ -76,62 +72,6 @@ func decryptDownload(md5Origin, songID, format, version string) (string, error) 
    ), nil
 }
 
-func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
-   var (
-      bfKey = getBlowFishKey(id)
-      chunkSize = 2048
-      destBuffer bytes.Buffer
-      errc = make(chan error)
-      wg sync.WaitGroup
-   )
-   for position, i := 0, 0; position < int(streamLen); position, i = position+chunkSize, i+1 {
-      func(i, position int, streamLen int64, stream io.Reader) {
-         if (int(streamLen) - position) >= 2048 {
-            chunkSize = 2048
-         } else {
-            chunkSize = int(streamLen) - position
-         }
-         buf := make([]byte, chunkSize) // The "chunk" of data
-         if _, err := io.ReadFull(stream, buf); err != nil {
-            errc <- fmt.Errorf("loop %v %v", i, err)
-         }
-         var (
-            chunkString []byte
-            err error
-         )
-         if i % 3 > 0 || chunkSize < 2048 {
-            chunkString = buf
-         } else { //Decrypt and then write to destBuffer
-            chunkString, err = blowfishDecrypt(buf, bfKey)
-            if err != nil {
-               errc <- fmt.Errorf("loop %v %v", i, err)
-            }
-         }
-         if _, err := destBuffer.Write(chunkString); err != nil {
-            errc <- fmt.Errorf("loop %v %v", i, err)
-         }
-      }(i, position, streamLen, stream)
-   }
-   for {
-      select {
-      case err := <-errc:
-         return err
-      default:
-         wg.Wait()
-         NameWithoutSlash := strings.ReplaceAll(FName, "/", "∕")
-         out, err := os.Create(NameWithoutSlash)
-         if err != nil {
-            return err
-         }
-         _, err = destBuffer.WriteTo(out)
-         if err != nil {
-            return err
-         }
-         return nil
-      }
-   }
-}
-
 func getAudioFile(downloadURL, id, FName string, client *http.Client) error {
    req, err := newRequest(downloadURL, "GET", nil)
    if err != nil {
@@ -160,7 +100,6 @@ func getBlowFishKey(id string) string {
 }
 
 func getToken(client *http.Client) (string, error) {
-   Deez := &DeezStruct{}
    reqs, err := newRequest(APIUrl, "GET", nil)
    if err != nil {
       return "", err
@@ -171,16 +110,12 @@ func getToken(client *http.Client) (string, error) {
       return "", err
    }
    defer resp.Body.Close()
-   body, err := ioutil.ReadAll(resp.Body)
+   var deez DeezStruct
+   err = json.NewDecoder(resp.Body).Decode(&deez)
    if err != nil {
       return "", err
    }
-   err = json.Unmarshal(body, &Deez)
-   if err != nil {
-      return "", err
-   }
-   APIToken := Deez.Results.DeezToken
-   return APIToken, nil
+   return deez.Results.DeezToken, nil
 }
 
 func getUrl(id string, client *http.Client) (string, string, *http.Client, error) {
@@ -204,13 +139,9 @@ func getUrl(id string, client *http.Client) (string, string, *http.Client, error
    if err != nil {
       return "", "", nil, err
    }
-   body, err := ioutil.ReadAll(resp.Body)
-   if err != nil {
-      return "", "", nil, err
-   }
    defer resp.Body.Close()
    var jsonTrack DeezTrack
-   err = json.Unmarshal(body, &jsonTrack)
+   err = json.NewDecoder(resp.Body).Decode(&jsonTrack)
    if err != nil {
       return "", "", nil, err
    }
@@ -237,22 +168,21 @@ func login() (*http.Client, error) {
       return nil, err
    }
    client := &http.Client{Jar: jar}
-   Deez := &DeezStruct{}
    req, err := newRequest(APIUrl, "POST", nil)
    req = addQs(req)
    resp, err := client.Do(req)
-   body, err := ioutil.ReadAll(resp.Body)
    if err != nil {
       return nil, err
    }
-   err = json.Unmarshal(body, &Deez)
+   defer resp.Body.Close()
+   var deez DeezStruct
+   err = json.NewDecoder(resp.Body).Decode(&deez)
    if err != nil {
       return nil, err
    }
-   resp.Body.Close()
    form := url.Values{}
    form.Set("type", "login")
-   form.Set("checkFormLogin", Deez.Results.CheckFormLogin)
+   form.Set("checkFormLogin", deez.Results.CheckFormLogin)
    req, err = newRequest(LoginURL, "POST", form.Encode())
    if err != nil {
       return nil, err
@@ -262,10 +192,6 @@ func login() (*http.Client, error) {
       return nil, err
    }
    defer resp.Body.Close()
-   body, err = ioutil.ReadAll(resp.Body)
-   if err != nil {
-      return nil, err
-   }
    if resp.StatusCode == 200 {
       cookies := []*http.Cookie{{
          Name: "arl",
