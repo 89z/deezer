@@ -19,13 +19,13 @@ func fileSize(name string) (int64, error) {
 }
 
 func TestMain(t *testing.T) {
-   c := exec.Command("deezer.exe", "-id", "75498415", "-usertoken", token)
+   c := exec.Command("deezer.exe", "-id", "75498418", "-usertoken", token)
    c.Stderr, c.Stdout = os.Stderr, os.Stdout
    e := c.Run()
    if e != nil {
       t.Error(e)
    }
-   file := "Maria (after Lyudmila Gurchenko) - Julia Holter.mp3"
+   file := "Für Felix - Julia Holter.mp3"
    size, e := fileSize(file)
    if e != nil {
       t.Error(e)
