@@ -12,10 +12,8 @@ import (
    "net/http/cookiejar"
    "net/url"
    "os"
-   "strconv"
    "strings"
    "sync"
-   "time"
 )
 
 const (
@@ -32,44 +30,19 @@ var (
    deezerKey = []byte("jo6aey6haid2Teih")
 )
 
-func addCookies(client *http.Client, CookieURL *url.URL) {
-   expire := time.Now().Add(time.Hour * 24 * 180)
-   expire.Format("2006-01-02T15:04:05.999Z07:00")
-   creation := time.Now().Format("2006-01-02T15:04:05.999Z07:00")
-   lastUsed := time.Now().Format("2006-01-02T15:04:05.999Z07:00")
-   rawcookie := fmt.Sprintf(
-      "arl=%s; expires=%v; %s creation=%v; lastAccessed=%v;",
-      cfg.UserToken,
-      expire,
-      "path=/; domain=deezer.com; max-age=15552000; httponly=true; hostonly=false;",
-      creation,
-      lastUsed,
-   )
-   cookies := []*http.Cookie{{
-      Domain:   ".deezer.com",
-      Expires:  expire,
-      HttpOnly: true,
-      MaxAge:   15552000,
-      Name:     "arl",
-      Path:     "/",
-      Raw:      rawcookie,
-      Value:    cfg.UserToken,
-   }}
-   client.Jar.SetCookies(CookieURL, cookies)
-}
 
-func addQs(req *http.Request, args ...string) *http.Request {
+func addQs(req *http.Request) *http.Request {
    qs := url.Values{}
-   qs.Add("api_version", "1.0")
-   qs.Add("api_token", args[0]) //args[0] always token
-   qs.Add("input", "3")
-   qs.Add("method", args[1]) //args[1] always method
+   qs.Set("api_version", "1.0")
+   qs.Set("api_token", "null")
+   qs.Set("input", "3")
+   qs.Set("method", "deezer.getUserData")
    req.URL.RawQuery = qs.Encode()
    return req
 }
 
-func decryptDownload(md5Origin, songID, format, mediaVersion string) (string, error) {
-   urlPart := md5Origin + "¤" + format + "¤" + songID + "¤" + mediaVersion
+func decryptDownload(md5Origin, songID, format, version string) (string, error) {
+   urlPart := md5Origin + "¤" + format + "¤" + songID + "¤" + version
    data := bytes.Replace([]byte(urlPart), []byte("¤"), []byte{164}, -1)
    md5SumVal := fmt.Sprintf("%x", md5.Sum(data))
    urlPart = md5SumVal + "¤" + urlPart + "¤"
@@ -77,13 +50,12 @@ func decryptDownload(md5Origin, songID, format, mediaVersion string) (string, er
    padding := aes.BlockSize - len(src) % aes.BlockSize
    padtext := bytes.Repeat([]byte{byte(padding)}, padding)
    plaintext := append(src, padtext...)
-   block, err := aes.NewCipher(deezerKey)
-   if err != nil {
-      return "", err
+   block, e := aes.NewCipher(deezerKey)
+   if e != nil {
+      return "", e
    }
    encryptText := make([]byte, len(plaintext))
-   mode := newECB(block) // return ECB encryptor
-   mode.cryptBlocks(encryptText, plaintext)
+   newECB(block).cryptBlocks(encryptText, plaintext)
    return fmt.Sprintf(
       "https://e-cdns-proxy-%v.dzcdn.net/mobile/1/%x",
       md5Origin[:1],
@@ -96,7 +68,7 @@ func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
    chunkSize := 2048
    bfKey := getBlowFishKey(id)
    errc := make(chan error)
-   var err error
+   var e error
    var destBuffer bytes.Buffer // final Product
    for position, i := 0, 0; position < int(streamLen); position, i = position+chunkSize, i+1 {
       func(i, position int, streamLen int64, stream io.Reader) {
@@ -107,36 +79,36 @@ func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
             chunkSize = int(streamLen) - position
          }
          buf := make([]byte, chunkSize) // The "chunk" of data
-         if _, err = io.ReadFull(stream, buf); err != nil {
-            errc <- fmt.Errorf("loop %v %v", i, err)
+         if _, e = io.ReadFull(stream, buf); e != nil {
+            errc <- fmt.Errorf("loop %v %v", i, e)
          }
          if i % 3 > 0 || chunkSize < 2048 {
             chunkString = buf
          } else { //Decrypt and then write to destBuffer
-            chunkString, err = blowfishDecrypt(buf, bfKey)
-            if err != nil {
-               errc <- fmt.Errorf("loop %v %v", i, err)
+            chunkString, e = blowfishDecrypt(buf, bfKey)
+            if e != nil {
+               errc <- fmt.Errorf("loop %v %v", i, e)
             }
          }
-         if _, err := destBuffer.Write(chunkString); err != nil {
-            errc <- fmt.Errorf("loop %v %v", i, err)
+         if _, e := destBuffer.Write(chunkString); e != nil {
+            errc <- fmt.Errorf("loop %v %v", i, e)
          }
       }(i, position, streamLen, stream)
    }
    for {
       select {
-      case err = <-errc:
-         return err
+      case e = <-errc:
+         return e
       default:
          wg.Wait()
          NameWithoutSlash := strings.ReplaceAll(FName, "/", "∕")
-         out, err := os.Create(NameWithoutSlash)
-         if err != nil {
-            return err
+         out, e := os.Create(NameWithoutSlash)
+         if e != nil {
+            return e
          }
-         _, err = destBuffer.WriteTo(out)
-         if err != nil {
-            return err
+         _, e = destBuffer.WriteTo(out)
+         if e != nil {
+            return e
          }
          return nil
       }
@@ -144,17 +116,17 @@ func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
 }
 
 func getAudioFile(downloadURL, id, FName string, client *http.Client) error {
-   req, err := newRequest(downloadURL, "GET", nil)
-   if err != nil {
-      return err
+   req, e := newRequest(downloadURL, "GET", nil)
+   if e != nil {
+      return e
    }
-   resp, err := client.Do(req)
-   if err != nil {
-      return err
+   resp, e := client.Do(req)
+   if e != nil {
+      return e
    }
-   err = decryptMedia(resp.Body, id, FName, resp.ContentLength)
-   if err != nil {
-      return err
+   e = decryptMedia(resp.Body, id, FName, resp.ContentLength)
+   if e != nil {
+      return e
    }
    defer resp.Body.Close()
    return nil
@@ -173,21 +145,20 @@ func getBlowFishKey(id string) string {
 
 func getToken(client *http.Client) (string, error) {
    Deez := &DeezStruct{}
-   args := []string{"null", "deezer.getUserData"}
-   reqs, err := newRequest(APIUrl, "GET", nil)
-   if err != nil {
-   return "", err
+   reqs, e := newRequest(APIUrl, "GET", nil)
+   if e != nil {
+      return "", e
    }
-   reqs = addQs(reqs, args...)
-   resp, err := client.Do(reqs)
-   if err != nil {
-   return "", err
+   reqs = addQs(reqs)
+   resp, e := client.Do(reqs)
+   if e != nil {
+      return "", e
    }
    defer resp.Body.Close()
    body, _ := ioutil.ReadAll(resp.Body)
-   err = json.Unmarshal(body, &Deez)
-   if err != nil {
-   return "", err
+   e = json.Unmarshal(body, &Deez)
+   if e != nil {
+      return "", e
    }
    APIToken := Deez.Results.DeezToken
    return APIToken, nil
@@ -198,22 +169,22 @@ func getUrl(id string, client *http.Client) (string, string, *http.Client, error
    APIToken, _ := getToken(client)
    jsonPrep := `{"sng_id":"` + id + `"}`
    jsonStr := []byte(jsonPrep)
-   req, err := newRequest(APIUrl, "POST", jsonStr)
-   if err != nil {
-      return "", "", nil, err
+   req, e := newRequest(APIUrl, "POST", jsonStr)
+   if e != nil {
+      return "", "", nil, e
    }
    qs := url.Values{}
-   qs.Add("api_version", "1.0")
-   qs.Add("api_token", APIToken)
-   qs.Add("input", "3")
-   qs.Add("method", "deezer.pageTrack")
+   qs.Set("api_version", "1.0")
+   qs.Set("api_token", APIToken)
+   qs.Set("input", "3")
+   qs.Set("method", "deezer.pageTrack")
    req.URL.RawQuery = qs.Encode()
    resp, _ := client.Do(req)
    body, _ := ioutil.ReadAll(resp.Body)
    defer resp.Body.Close()
-   err = json.Unmarshal(body, &jsonTrack)
-   if err != nil {
-      return "", "", nil, err
+   e = json.Unmarshal(body, &jsonTrack)
+   if e != nil {
+      return "", "", nil, e
    }
    FileSize320, _ := jsonTrack.Results.DATA.FileSize320.Int64()
    FileSize256, _ := jsonTrack.Results.DATA.FileSize256.Int64()
@@ -235,9 +206,9 @@ func getUrl(id string, client *http.Client) (string, string, *http.Client, error
    songTitle := jsonTrack.Results.DATA.SngTitle
    artName := jsonTrack.Results.DATA.ArtName
    FName := fmt.Sprintf("%s - %s.mp3", songTitle, artName)
-   downloadURL, err := decryptDownload(md5Origin, songID, format, mediaVersion)
-   if err != nil {
-      return "", "", nil, err
+   downloadURL, e := decryptDownload(md5Origin, songID, format, mediaVersion)
+   if e != nil {
+      return "", "", nil, e
    }
    return downloadURL, FName, client, nil
 }
@@ -246,58 +217,59 @@ func login() (*http.Client, error) {
    CookieJar, _ := cookiejar.New(nil)
    client := &http.Client{Jar: CookieJar}
    Deez := &DeezStruct{}
-   req, err := newRequest(APIUrl, "POST", nil)
-   args := []string{"null", "deezer.getUserData"}
-   req = addQs(req, args...)
-   resp, err := client.Do(req)
+   req, e := newRequest(APIUrl, "POST", nil)
+   req = addQs(req)
+   resp, e := client.Do(req)
    body, _ := ioutil.ReadAll(resp.Body)
-   err = json.Unmarshal(body, &Deez)
-   if err != nil {
-      return nil, err
+   e = json.Unmarshal(body, &Deez)
+   if e != nil {
+      return nil, e
    }
    CookieURL, _ := url.Parse(Domain)
    resp.Body.Close()
    form := url.Values{}
-   form.Add("type", "login")
-   form.Add("checkFormLogin", Deez.Results.CheckFormLogin)
-   req, err = newRequest(LoginURL, "POST", form.Encode())
-   if err != nil {
-      return nil, err
+   form.Set("type", "login")
+   form.Set("checkFormLogin", Deez.Results.CheckFormLogin)
+   req, e = newRequest(LoginURL, "POST", form.Encode())
+   if e != nil {
+      return nil, e
    }
-   req.Header.Set("Content-type", "application/x-www-form-urlencoded")
-   req.Header.Add("Content-Length", strconv.Itoa(len(form.Encode())))
-   resp, err = client.Do(req)
-   if err != nil {
-      return nil, err
+   resp, e = client.Do(req)
+   if e != nil {
+      return nil, e
    }
    defer resp.Body.Close()
-   body, err = ioutil.ReadAll(resp.Body)
-   if err != nil {
-      return nil, err
+   body, e = ioutil.ReadAll(resp.Body)
+   if e != nil {
+      return nil, e
    }
    if resp.StatusCode == 200 {
-      addCookies(client, CookieURL)
+      cookies := []*http.Cookie{{
+         Name: "arl",
+         Value: cfg.UserToken,
+      }}
+      client.Jar.SetCookies(CookieURL, cookies)
       return client, nil
    }
-   return nil, fmt.Errorf("StatusCode %v %v", resp.StatusCode, err)
+   return nil, fmt.Errorf("StatusCode %v %v", resp.StatusCode, e)
 }
 
 func newRequest(enPoint, method string, bodyEntity interface{}) (*http.Request, error) {
    var req *http.Request
-   var err error
+   var e error
    switch val := bodyEntity.(type) {
    case []byte:
-      req, err = http.NewRequest(method, enPoint, bytes.NewBuffer(val))
+      req, e = http.NewRequest(method, enPoint, bytes.NewBuffer(val))
    case string:
-      req, err = http.NewRequest(method, enPoint, strings.NewReader(val))
+      req, e = http.NewRequest(method, enPoint, strings.NewReader(val))
    default:
-      req, err = http.NewRequest(method, enPoint, nil)
+      req, e = http.NewRequest(method, enPoint, nil)
    }
    if bodyEntity == nil {
-      req, err = http.NewRequest(method, enPoint, nil)
+      req, e = http.NewRequest(method, enPoint, nil)
    }
-   if err != nil {
-      return nil, err
+   if e != nil {
+      return nil, e
    }
    return req, nil
 }

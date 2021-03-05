@@ -6,7 +6,6 @@ import (
    "golang.org/x/crypto/blowfish"
 )
 
-
 func blowfishDecrypt(buf []byte, bfKey string) ([]byte, error) {
    decrypter, err := blowfish.NewCipher([]byte(bfKey)) // 8bytes
    if err != nil {
