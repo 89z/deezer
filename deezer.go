@@ -14,7 +14,12 @@ import (
    "strings"
 )
 
-const APIURL = "http://www.deezer.com/ajax/gw-light.php"
+const deezerAPI = "http://www.deezer.com/ajax/gw-light.php"
+
+const (
+   deezer320 = '3'
+   deezerFlac = '9'
+)
 
 var (
    deezerAES = []byte("jo6aey6haid2Teih")
@@ -22,12 +27,71 @@ var (
    deezerIv = []byte{0, 1, 2, 3, 4, 5, 6, 7}
 )
 
-func decryptDownload(data deezData, format string) (string, error) {
+func getData(conf config) (deezData, error) {
+   // client
+   jar, err := cookiejar.New(nil)
+   if err != nil {
+      return deezData{}, err
+   }
+   client := http.Client{Jar: jar}
+   // we must use Request, as cookies are required
+   req, err := http.NewRequest("GET", deezerAPI, nil)
+   if err != nil {
+      return deezData{}, err
+   }
+   qs := url.Values{}
+   qs.Set("api_version", "1.0")
+   qs.Set("api_token", "null")
+   qs.Set("method", "deezer.getUserData")
+   req.URL.RawQuery = qs.Encode()
+   req.AddCookie(&http.Cookie{Name: "arl", Value: conf.userToken})
+   // send
+   resp, err := client.Do(req)
+   if err != nil {
+      return deezData{}, err
+   }
+   defer resp.Body.Close()
+   var check deezCheck
+   err = json.NewDecoder(resp.Body).Decode(&check)
+   if err != nil {
+      return deezData{}, err
+   }
+   sng := fmt.Sprintf(`{"sng_id": "%v"}`, conf.trackId)
+   // we must use Request, as cookies are required
+   req, err = http.NewRequest("POST", deezerAPI, strings.NewReader(sng))
+   if err != nil {
+      return deezData{}, err
+   }
+   qs = url.Values{}
+   qs.Set("api_version", "1.0")
+   qs.Set("api_token", check.Results.CheckForm)
+   qs.Set("method", "deezer.pageTrack")
+   req.URL.RawQuery = qs.Encode()
+   // read cookies
+   resp, err = client.Do(req)
+   if err != nil {
+      return deezData{}, err
+   }
+   defer resp.Body.Close()
+   var track deezTrack
+   err = json.NewDecoder(resp.Body).Decode(&track)
+   if err != nil {
+      return deezData{}, err
+   }
+   return track.Results.Data, nil
+}
+
+func decryptDownload(data deezData) (string, error) {
    block, err := aes.NewCipher(deezerAES)
    if err != nil {
       return "", err
    }
-   plain := data.MD5Origin + "\xa4" + format + "\xa4" + data.SngId + "\xa4" + data.MediaVersion
+   plain := fmt.Sprint(
+      data.MD5Origin, "\xa4",
+      string(deezer320), "\xa4",
+      data.SngId, "\xa4",
+      data.MediaVersion,
+   )
    text := []byte(
       md5Hash(plain) + "\xa4" + plain,
    )
@@ -36,7 +100,7 @@ func decryptDownload(data deezData, format string) (string, error) {
    }
    newECBEncrypter(block).CryptBlocks(text, text)
    return fmt.Sprintf(
-      "https://e-cdns-proxy-%v.dzcdn.net/mobile/1/%x", data.MD5Origin[:1], text,
+      "https://e-cdns-proxy-%c.dzcdn.net/mobile/1/%x", data.MD5Origin[0], text,
    ), nil
 }
 
@@ -74,73 +138,6 @@ func decryptMedia(conf config, read *http.Response, write io.Writer) error {
    return nil
 }
 
-func getToken(conf config, client http.Client) (string, error) {
-   // we must use Request, as cookies are required
-   req, err := http.NewRequest("GET", APIURL, nil)
-   if err != nil {
-      return "", err
-   }
-   qs := url.Values{}
-   qs.Set("api_version", "1.0")
-   qs.Set("api_token", "null")
-   qs.Set("method", "deezer.getUserData")
-   req.URL.RawQuery = qs.Encode()
-   req.AddCookie(&http.Cookie{Name: "arl", Value: conf.UserToken})
-   resp, err := client.Do(req)
-   if err != nil {
-      return "", err
-   }
-   defer resp.Body.Close()
-   var deez deezCheck
-   err = json.NewDecoder(resp.Body).Decode(&deez)
-   if err != nil {
-      return "", err
-   }
-   return deez.Results.CheckForm, nil
-}
-
-func getUrl(conf config) (string, string, error) {
-   jar, err := cookiejar.New(nil)
-   if err != nil {
-      return "", "", err
-   }
-   client := http.Client{Jar: jar}
-   // write cookies
-   token, err := getToken(conf, client)
-   if err != nil {
-      return "", "", err
-   }
-   sng := fmt.Sprintf(`{"sng_id": "%v"}`, conf.trackId)
-   // we must use Request, as cookies are required
-   req, err := http.NewRequest("POST", APIURL, strings.NewReader(sng))
-   if err != nil {
-      return "", "", err
-   }
-   qs := url.Values{}
-   qs.Set("api_version", "1.0")
-   qs.Set("api_token", token)
-   qs.Set("method", "deezer.pageTrack")
-   req.URL.RawQuery = qs.Encode()
-   // read cookies
-   resp, err := client.Do(req)
-   if err != nil {
-      return "", "", err
-   }
-   defer resp.Body.Close()
-   var track deezTrack
-   err = json.NewDecoder(resp.Body).Decode(&track)
-   if err != nil {
-      return "", "", err
-   }
-   // 320
-   source, err := decryptDownload(track.Results.Data, "3")
-   if err != nil {
-      return "", "", err
-   }
-   return source, fmt.Sprintf(
-      "%s - %s.mp3", track.Results.Data.SngTitle, track.Results.Data.ArtName,
-   ), nil
-}
 
 func md5Hash(s string) string {
    b := []byte(s)
@@ -150,7 +147,7 @@ func md5Hash(s string) string {
 }
 
 type config struct {
-   UserToken string
+   userToken string
    trackId string
 }
 

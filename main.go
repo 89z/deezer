@@ -2,6 +2,7 @@ package main
 
 import (
    "flag"
+   "fmt"
    "log"
    "net/http"
    "os"
@@ -9,14 +10,18 @@ import (
 
 func main() {
    var conf config
-   flag.StringVar(&conf.UserToken, "usertoken", "", "Your Unique User Token")
+   flag.StringVar(&conf.userToken, "usertoken", "", "Your Unique User Token")
    flag.StringVar(&conf.trackId, "id", "", "Deezer Track ID")
    flag.Parse()
    if conf.trackId == "" {
       flag.PrintDefaults()
       os.Exit(1)
    }
-   source, dest, err := getUrl(conf)
+   data, err := getData(conf)
+   if err != nil {
+      log.Fatal(err)
+   }
+   source, err := decryptDownload(data)
    if err != nil {
       log.Fatal(err)
    }
@@ -25,7 +30,9 @@ func main() {
       log.Fatal(err)
    }
    defer get.Body.Close()
-   create, err := os.Create(dest)
+   create, err := os.Create(
+      fmt.Sprintf("%s - %s.mp3", data.ArtName, data.SngTitle),
+   )
    if err != nil {
       log.Fatal(err)
    }

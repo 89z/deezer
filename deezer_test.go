@@ -18,7 +18,7 @@ func TestMain(t *testing.T) {
    if e != nil {
       t.Error(e)
    }
-   file := "Für Felix - Julia Holter.mp3"
+   file := "Julia Holter - Für Felix.mp3"
    data, e := ioutil.ReadFile(file)
    if e != nil {
       t.Error(e)
