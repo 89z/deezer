@@ -31,7 +31,7 @@ func TestMain(t *testing.T) {
       t.Error(e)
    }
    if size != 5_426_154 {
-      t.Error("size")
+      t.Error("size", size)
    }
    e = os.Remove(file)
    if e != nil {
