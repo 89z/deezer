@@ -7,11 +7,10 @@ import (
    "encoding/json"
    "fmt"
    "golang.org/x/crypto/blowfish"
-   "io"
    "net/http"
    "net/http/cookiejar"
    "net/url"
-   "os"
+   "io"
    "strings"
 )
 
@@ -20,20 +19,6 @@ const (
    deezerAES = "jo6aey6haid2Teih"
    deezerCBC = "g4el58wc0zvf9na1"
 )
-
-func blowfishDecrypt(buf []byte, blowfishKey string) ([]byte, error) {
-   if len(buf) % blowfish.BlockSize != 0 {
-      return nil, fmt.Errorf("The Buf is not a multiple of 8")
-   }
-   decrypter, err := blowfish.NewCipher([]byte(blowfishKey))
-   if err != nil {
-      return nil, err
-   }
-   cipher.NewCBCDecrypter(
-      decrypter, []byte{0, 1, 2, 3, 4, 5, 6, 7},
-   ).CryptBlocks(buf, buf)
-   return buf, nil
-}
 
 func decryptDownload(origin, songID, format, version string) (string, error) {
    block, err := aes.NewCipher([]byte(deezerAES))
@@ -55,54 +40,43 @@ func decryptDownload(origin, songID, format, version string) (string, error) {
    ), nil
 }
 
-func decryptMedia(resp *http.Response, trackId, name string) error {
-   create, err := os.Create(
-      strings.ReplaceAll(name, "/", " "),
+func decryptMedia(conf config, read *http.Response, write io.Writer) error {
+   var (
+      bfKey []byte
+      trackHash = md5Hash(conf.trackId)
    )
+   for n := 0; n < 16; n++ {
+      bfKey = append(bfKey, trackHash[n] ^ trackHash[n + 16] ^ deezerCBC[n])
+   }
+   decrypter, err := blowfish.NewCipher(bfKey)
    if err != nil {
       return err
    }
-   defer create.Close()
-   var (
-      blowfishKey string
-      chunkSize int64 = 2048
-      idM5 = md5Hash(trackId)
-   )
-   for n := 0; n < 16; n++ {
-      blowfishKey += string(idM5[n] ^ idM5[n + 16] ^ deezerCBC[n])
-   }
-   var n, pos int64
-   for pos < resp.ContentLength {
-      if resp.ContentLength - pos >= 2048 {
-         chunkSize = 2048
-      } else {
-         chunkSize = resp.ContentLength - pos
+   var size int64 = 2048
+   for n := 0; read.ContentLength > 0; n++ {
+      if read.ContentLength < size {
+         size = read.ContentLength
       }
-      buf := make([]byte, chunkSize)
-      _, err := io.ReadFull(resp.Body, buf)
+      buf := make([]byte, size)
+      _, err := read.Body.Read(buf)
       if err != nil {
          return err
       }
-      var chunk []byte
-      if n % 3 > 0 || chunkSize < 2048 {
-         chunk = buf
-      } else {
-         chunk, err = blowfishDecrypt(buf, blowfishKey)
-         if err != nil {
-            return err
-         }
+      if n % 3 == 0 && read.ContentLength > size {
+         cipher.NewCBCDecrypter(
+            decrypter, []byte{0, 1, 2, 3, 4, 5, 6, 7},
+         ).CryptBlocks(buf, buf)
       }
-      _, err = create.Write(chunk)
+      _, err = write.Write(buf)
       if err != nil {
          return err
       }
-      n += 1
-      pos += chunkSize
+      read.ContentLength -= size
    }
    return nil
 }
 
-func getToken(config configuration, httpClient http.Client) (string, error) {
+func getToken(conf config, client http.Client) (string, error) {
    // we must use Request, as cookies are required
    req, err := http.NewRequest("GET", APIURL, nil)
    if err != nil {
@@ -114,8 +88,8 @@ func getToken(config configuration, httpClient http.Client) (string, error) {
    qs.Set("input", "3")
    qs.Set("method", "deezer.getUserData")
    req.URL.RawQuery = qs.Encode()
-   req.AddCookie(&http.Cookie{Name: "arl", Value: config.UserToken})
-   resp, err := httpClient.Do(req)
+   req.AddCookie(&http.Cookie{Name: "arl", Value: conf.UserToken})
+   resp, err := client.Do(req)
    if err != nil {
       return "", err
    }
@@ -128,18 +102,18 @@ func getToken(config configuration, httpClient http.Client) (string, error) {
    return deez.Results.DeezToken, nil
 }
 
-func getUrl(config configuration, httpClient http.Client) (string, string, error) {
+func getUrl(conf config) (string, string, error) {
    jar, err := cookiejar.New(nil)
    if err != nil {
       return "", "", err
    }
-   httpClient.Jar = jar
+   client := http.Client{Jar: jar}
    // write cookies
-   APIToken, err := getToken(config, httpClient)
+   APIToken, err := getToken(conf, client)
    if err != nil {
       return "", "", err
    }
-   sng := fmt.Sprintf(`{"sng_id": "%v"}`, config.trackId)
+   sng := fmt.Sprintf(`{"sng_id": "%v"}`, conf.trackId)
    qs := url.Values{}
    qs.Set("api_version", "1.0")
    qs.Set("api_token", APIToken)
@@ -152,7 +126,7 @@ func getUrl(config configuration, httpClient http.Client) (string, string, error
    }
    req.URL.RawQuery = qs.Encode()
    // read cookies
-   resp, err := httpClient.Do(req)
+   resp, err := client.Do(req)
    if err != nil {
       return "", "", err
    }
@@ -213,7 +187,7 @@ type TrackData struct {
    SngTitle     string `json:"SNG_TITLE"`
 }
 
-type configuration struct {
+type config struct {
    UserToken string
    trackId string
 }

@@ -8,25 +8,29 @@ import (
 )
 
 func main() {
-   var config configuration
-   flag.StringVar(&config.UserToken, "usertoken", "", "Your Unique User Token")
-   flag.StringVar(&config.trackId, "id", "", "Deezer Track ID")
+   var conf config
+   flag.StringVar(&conf.UserToken, "usertoken", "", "Your Unique User Token")
+   flag.StringVar(&conf.trackId, "id", "", "Deezer Track ID")
    flag.Parse()
-   if config.trackId == "" {
+   if conf.trackId == "" {
       flag.PrintDefaults()
       os.Exit(1)
    }
-   var client http.Client
-   downloadURL, FName, err := getUrl(config, client)
+   source, dest, err := getUrl(conf)
    if err != nil {
       log.Fatal(err)
    }
-   resp, err := http.Get(downloadURL)
+   get, err := http.Get(source)
    if err != nil {
       log.Fatal(err)
    }
-   defer resp.Body.Close()
-   err = decryptMedia(resp, config.trackId, FName)
+   defer get.Body.Close()
+   create, err := os.Create(dest)
+   if err != nil {
+      log.Fatal(err)
+   }
+   defer create.Close()
+   err = decryptMedia(conf, get, create)
    if err != nil {
       log.Fatal(err)
    }
