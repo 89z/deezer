@@ -108,18 +108,44 @@ func getAudioFile(downloadURL, trackId, FName string) error {
    return decryptMedia(resp.Body, trackId, FName, resp.ContentLength)
 }
 
-func getUrl(trackId string, httpClient http.Client) (string, string, error) {
+func getToken(config configuration, httpClient http.Client) (string, error) {
+   // we must use Request, as cookies are required
+   req, err := http.NewRequest("GET", APIURL, nil)
+   if err != nil {
+      return "", err
+   }
+   qs := url.Values{}
+   qs.Set("api_version", "1.0")
+   qs.Set("api_token", "null")
+   qs.Set("input", "3")
+   qs.Set("method", "deezer.getUserData")
+   req.URL.RawQuery = qs.Encode()
+   req.AddCookie(&http.Cookie{Name: "arl", Value: config.userToken})
+   resp, err := httpClient.Do(req)
+   if err != nil {
+      return "", err
+   }
+   defer resp.Body.Close()
+   var deez DeezStruct
+   err = json.NewDecoder(resp.Body).Decode(&deez)
+   if err != nil {
+      return "", err
+   }
+   return deez.Results.DeezToken, nil
+}
+
+func getUrl(config configuration, httpClient http.Client) (string, string, error) {
    jar, err := cookiejar.New(nil)
    if err != nil {
       return "", "", err
    }
    httpClient.Jar = jar
    // write cookies
-   APIToken, err := getToken(httpClient)
+   APIToken, err := getToken(config, httpClient)
    if err != nil {
       return "", "", err
    }
-   sng := fmt.Sprintf(`{"sng_id": "%v"}`, trackId)
+   sng := fmt.Sprintf(`{"sng_id": "%v"}`, config.trackId)
    qs := url.Values{}
    qs.Set("api_version", "1.0")
    qs.Set("api_token", APIToken)
@@ -191,6 +217,11 @@ type TrackData struct {
    MD5Origin    string `json:"MD5_ORIGIN"`
    MediaVersion string `json:"MEDIA_VERSION"`
    SngTitle     string `json:"SNG_TITLE"`
+}
+
+type configuration struct {
+   trackId string
+   userToken string
 }
 
 type ecbEncrypter struct {
