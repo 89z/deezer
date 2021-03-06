@@ -8,6 +8,5 @@ Download audio from Deezer
 ## Thanks
 
 - https://github.com/moon004/Go-deezer-downloader
-- https://github.com/samhza/dzdown
 - https://pkg.go.dev/github.com/godeezer/lib/deezer
 - https://pkg.go.dev/github.com/joshbarrass/deezerdl/pkg/deezer

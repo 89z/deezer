@@ -14,29 +14,29 @@ import (
    "strings"
 )
 
-const (
-   APIURL = "http://www.deezer.com/ajax/gw-light.php"
-   deezerAES = "jo6aey6haid2Teih"
-   deezerCBC = "g4el58wc0zvf9na1"
+const APIURL = "http://www.deezer.com/ajax/gw-light.php"
+
+var (
+   deezerAES = []byte("jo6aey6haid2Teih")
+   deezerCBC = []byte("g4el58wc0zvf9na1")
+   deezerIv = []byte{0, 1, 2, 3, 4, 5, 6, 7}
 )
 
-func decryptDownload(origin, songID, format, version string) (string, error) {
-   block, err := aes.NewCipher([]byte(deezerAES))
+func decryptDownload(data deezData, format string) (string, error) {
+   block, err := aes.NewCipher(deezerAES)
    if err != nil {
       return "", err
    }
-   src := origin + "\xa4" + format + "\xa4" + songID + "\xa4" + version
-   content := []byte(
-      md5Hash(src) + "\xa4" + src,
+   plain := data.MD5Origin + "\xa4" + format + "\xa4" + data.SngId + "\xa4" + data.MediaVersion
+   text := []byte(
+      md5Hash(plain) + "\xa4" + plain,
    )
-   for len(content) % aes.BlockSize > 0 {
-      content = append(content, 0)
+   for len(text) % aes.BlockSize > 0 {
+      text = append(text, 0)
    }
-   newECBEncrypter(block).CryptBlocks(content, content)
+   newECBEncrypter(block).CryptBlocks(text, text)
    return fmt.Sprintf(
-      "https://e-cdns-proxy-%v.dzcdn.net/mobile/1/%x",
-      origin[:1],
-      content,
+      "https://e-cdns-proxy-%v.dzcdn.net/mobile/1/%x", data.MD5Origin[:1], text,
    ), nil
 }
 
@@ -48,7 +48,7 @@ func decryptMedia(conf config, read *http.Response, write io.Writer) error {
    for n := 0; n < 16; n++ {
       bfKey = append(bfKey, trackHash[n] ^ trackHash[n + 16] ^ deezerCBC[n])
    }
-   decrypter, err := blowfish.NewCipher(bfKey)
+   block, err := blowfish.NewCipher(bfKey)
    if err != nil {
       return err
    }
@@ -57,17 +57,15 @@ func decryptMedia(conf config, read *http.Response, write io.Writer) error {
       if read.ContentLength < size {
          size = read.ContentLength
       }
-      buf := make([]byte, size)
-      _, err := read.Body.Read(buf)
+      text := make([]byte, size)
+      _, err := read.Body.Read(text)
       if err != nil {
          return err
       }
       if n % 3 == 0 && read.ContentLength > size {
-         cipher.NewCBCDecrypter(
-            decrypter, []byte{0, 1, 2, 3, 4, 5, 6, 7},
-         ).CryptBlocks(buf, buf)
+         cipher.NewCBCDecrypter(block, deezerIv).CryptBlocks(text, text)
       }
-      _, err = write.Write(buf)
+      _, err = write.Write(text)
       if err != nil {
          return err
       }
@@ -85,7 +83,6 @@ func getToken(conf config, client http.Client) (string, error) {
    qs := url.Values{}
    qs.Set("api_version", "1.0")
    qs.Set("api_token", "null")
-   qs.Set("input", "3")
    qs.Set("method", "deezer.getUserData")
    req.URL.RawQuery = qs.Encode()
    req.AddCookie(&http.Cookie{Name: "arl", Value: conf.UserToken})
@@ -94,12 +91,12 @@ func getToken(conf config, client http.Client) (string, error) {
       return "", err
    }
    defer resp.Body.Close()
-   var deez DeezStruct
+   var deez deezCheck
    err = json.NewDecoder(resp.Body).Decode(&deez)
    if err != nil {
       return "", err
    }
-   return deez.Results.DeezToken, nil
+   return deez.Results.CheckForm, nil
 }
 
 func getUrl(conf config) (string, string, error) {
@@ -109,21 +106,20 @@ func getUrl(conf config) (string, string, error) {
    }
    client := http.Client{Jar: jar}
    // write cookies
-   APIToken, err := getToken(conf, client)
+   token, err := getToken(conf, client)
    if err != nil {
       return "", "", err
    }
    sng := fmt.Sprintf(`{"sng_id": "%v"}`, conf.trackId)
-   qs := url.Values{}
-   qs.Set("api_version", "1.0")
-   qs.Set("api_token", APIToken)
-   qs.Set("input", "3")
-   qs.Set("method", "deezer.pageTrack")
    // we must use Request, as cookies are required
    req, err := http.NewRequest("POST", APIURL, strings.NewReader(sng))
    if err != nil {
       return "", "", err
    }
+   qs := url.Values{}
+   qs.Set("api_version", "1.0")
+   qs.Set("api_token", token)
+   qs.Set("method", "deezer.pageTrack")
    req.URL.RawQuery = qs.Encode()
    // read cookies
    resp, err := client.Do(req)
@@ -131,65 +127,51 @@ func getUrl(conf config) (string, string, error) {
       return "", "", err
    }
    defer resp.Body.Close()
-   var jsonTrack DeezTrack
-   err = json.NewDecoder(resp.Body).Decode(&jsonTrack)
+   var track deezTrack
+   err = json.NewDecoder(resp.Body).Decode(&track)
    if err != nil {
       return "", "", err
    }
-   downloadURL, err := decryptDownload(
-      jsonTrack.Results.DATA.MD5Origin,
-      jsonTrack.Results.DATA.ID.String(),
-      "3", // 320
-      jsonTrack.Results.DATA.MediaVersion,
-   )
+   // 320
+   source, err := decryptDownload(track.Results.Data, "3")
    if err != nil {
       return "", "", err
    }
-   fName := fmt.Sprintf(
-      "%s - %s.mp3",
-      jsonTrack.Results.DATA.SngTitle,
-      jsonTrack.Results.DATA.ArtName,
-   )
-   return downloadURL, fName, nil
+   return source, fmt.Sprintf(
+      "%s - %s.mp3", track.Results.Data.SngTitle, track.Results.Data.ArtName,
+   ), nil
 }
 
 func md5Hash(s string) string {
-   data := []byte(s)
+   b := []byte(s)
    return fmt.Sprintf(
-      "%x", md5.Sum(data),
+      "%x", md5.Sum(b),
    )
-}
-
-type Data struct {
-   DATA *TrackData `json:"DATA"`
-}
-
-type DeezStruct struct {
-   Error   []string    `json:"error,omitempty"`
-   Results *ResultList `json:"results,omitempty"`
-}
-
-type DeezTrack struct {
-   Error   []string `json:"error,omitempty"`
-   Results *Data    `json:"results,omitempty"`
-}
-
-type ResultList struct {
-   CheckFormLogin string `json:"checkFormLogin,omitempty"`
-   DeezToken      string `json:"checkForm,omitempty"`
-}
-
-type TrackData struct {
-   ArtName      string `json:"ART_NAME"`
-   ID           json.Number `json:"SNG_ID"`
-   MD5Origin    string `json:"MD5_ORIGIN"`
-   MediaVersion string `json:"MEDIA_VERSION"`
-   SngTitle     string `json:"SNG_TITLE"`
 }
 
 type config struct {
    UserToken string
    trackId string
+}
+
+type deezCheck struct {
+   Results struct {
+      CheckForm string
+   }
+}
+
+type deezData struct {
+   ArtName      string `json:"ART_NAME"`
+   MD5Origin    string `json:"MD5_ORIGIN"`
+   MediaVersion string `json:"MEDIA_VERSION"`
+   SngId        string `json:"SNG_ID"`
+   SngTitle     string `json:"SNG_TITLE"`
+}
+
+type deezTrack struct {
+   Results struct {
+      Data deezData
+   }
 }
 
 type ecbEncrypter struct {
