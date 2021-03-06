@@ -21,7 +21,12 @@ func main() {
    if err != nil {
       log.Fatal(err)
    }
-   err = getAudioFile(downloadURL, config.trackId, FName)
+   resp, err := http.Get(downloadURL)
+   if err != nil {
+      log.Fatal(err)
+   }
+   defer resp.Body.Close()
+   err = decryptMedia(resp, config.trackId, FName)
    if err != nil {
       log.Fatal(err)
    }

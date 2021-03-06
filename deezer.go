@@ -55,7 +55,7 @@ func decryptDownload(origin, songID, format, version string) (string, error) {
    ), nil
 }
 
-func decryptMedia(media io.Reader, trackId, name string, mediaLen int64) error {
+func decryptMedia(resp *http.Response, trackId, name string) error {
    create, err := os.Create(
       strings.ReplaceAll(name, "/", " "),
    )
@@ -65,47 +65,41 @@ func decryptMedia(media io.Reader, trackId, name string, mediaLen int64) error {
    defer create.Close()
    var (
       blowfishKey string
-      chunkSize = 2048
+      chunkSize int64 = 2048
       idM5 = md5Hash(trackId)
    )
-   for i := 0; i < 16; i++ {
-      blowfishKey += string(idM5[i] ^ idM5[i + 16] ^ deezerCBC[i])
+   for n := 0; n < 16; n++ {
+      blowfishKey += string(idM5[n] ^ idM5[n + 16] ^ deezerCBC[n])
    }
-   for pos, i := 0, 0; pos < int(mediaLen); pos, i = pos + chunkSize, i + 1 {
-      if (int(mediaLen) - pos) >= 2048 {
+   var n, pos int64
+   for pos < resp.ContentLength {
+      if resp.ContentLength - pos >= 2048 {
          chunkSize = 2048
       } else {
-         chunkSize = int(mediaLen) - pos
+         chunkSize = resp.ContentLength - pos
       }
       buf := make([]byte, chunkSize)
-      _, err := io.ReadFull(media, buf)
+      _, err := io.ReadFull(resp.Body, buf)
       if err != nil {
-         return fmt.Errorf("loop %v %v", i, err)
+         return err
       }
       var chunk []byte
-      if i % 3 > 0 || chunkSize < 2048 {
+      if n % 3 > 0 || chunkSize < 2048 {
          chunk = buf
       } else {
          chunk, err = blowfishDecrypt(buf, blowfishKey)
          if err != nil {
-            return fmt.Errorf("loop %v %v", i, err)
+            return err
          }
       }
       _, err = create.Write(chunk)
       if err != nil {
-         return fmt.Errorf("loop %v %v", i, err)
+         return err
       }
+      n += 1
+      pos += chunkSize
    }
    return nil
-}
-
-func getAudioFile(downloadURL, trackId, FName string) error {
-   resp, err := http.Get(downloadURL)
-   if err != nil {
-      return err
-   }
-   defer resp.Body.Close()
-   return decryptMedia(resp.Body, trackId, FName, resp.ContentLength)
 }
 
 func getToken(config configuration, httpClient http.Client) (string, error) {
