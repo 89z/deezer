@@ -1,6 +1,7 @@
 package main
 
 import (
+   "io/ioutil"
    "os"
    "os/exec"
    "testing"
@@ -26,12 +27,13 @@ func TestMain(t *testing.T) {
       t.Error(e)
    }
    file := "Für Felix - Julia Holter.mp3"
-   size, e := fileSize(file)
+   data, e := ioutil.ReadFile(file)
    if e != nil {
       t.Error(e)
    }
-   if size != 5_426_154 {
-      t.Error("size", size)
+   hash := md5Hash(string(data))
+   if hash != "87207d3416377217f835b887c74f4300" {
+      t.Error(hash)
    }
    e = os.Remove(file)
    if e != nil {
