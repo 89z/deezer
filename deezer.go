@@ -1,7 +1,6 @@
 package main
 
 import (
-   "bytes"
    "crypto/aes"
    "crypto/cipher"
    "crypto/md5"
@@ -53,24 +52,22 @@ func blowfishDecrypt(buf []byte, blowfishKey string) ([]byte, error) {
 }
 
 func decryptDownload(md5Origin, songID, format, version string) (string, error) {
-   urlPart := md5Origin + "\xa4" + format + "\xa4" + songID + "\xa4" + version
-   src := []byte(
-      md5Hash(urlPart) + "\xa4" + urlPart + "\xa4",
-   )
-   padtext := bytes.Repeat(
-      []byte{0}, aes.BlockSize - len(src) % aes.BlockSize,
-   )
-   plaintext := append(src, padtext...)
    block, err := aes.NewCipher([]byte(deezerAES))
    if err != nil {
       return "", err
    }
-   encryptText := make([]byte, len(plaintext))
-   newECB(block).cryptBlocks(encryptText, plaintext)
+   src := md5Origin + "\xa4" + format + "\xa4" + songID + "\xa4" + version
+   content := []byte(
+      md5Hash(src) + "\xa4" + src,
+   )
+   for len(content) % aes.BlockSize > 0 {
+      content = append(content, 0)
+   }
+   newECBEncrypter(block).CryptBlocks(content, content)
    return fmt.Sprintf(
       "https://e-cdns-proxy-%v.dzcdn.net/mobile/1/%x",
       md5Origin[:1],
-      encryptText,
+      content,
    ), nil
 }
 
@@ -118,31 +115,22 @@ func decryptMedia(stream io.Reader, id, FName string, streamLen int64) error {
    return nil
 }
 
-func getAudioFile(downloadURL, id, FName string, client http.Client) error {
-   req, err := newRequest(downloadURL, "GET", nil)
-   if err != nil {
-      return err
-   }
-   resp, err := client.Do(req)
-   if err != nil {
-      return err
-   }
-   err = decryptMedia(resp.Body, id, FName, resp.ContentLength)
+func getAudioFile(downloadURL, id, FName string) error {
+   resp, err := http.Get(downloadURL)
    if err != nil {
       return err
    }
    defer resp.Body.Close()
-   return nil
+   return decryptMedia(resp.Body, id, FName, resp.ContentLength)
 }
 
-
 func getToken(client http.Client) (string, error) {
-   reqs, err := newRequest(APIUrl, "GET", nil)
+   req, err := http.NewRequest("GET", APIUrl, nil)
    if err != nil {
       return "", err
    }
    resp, err := client.Do(
-      addQs(reqs),
+      addQs(req),
    )
    if err != nil {
       return "", err
@@ -156,17 +144,23 @@ func getToken(client http.Client) (string, error) {
    return deez.Results.DeezToken, nil
 }
 
-func getUrl(id string, client http.Client) (string, string, http.Client, error) {
-   APIToken, err := getToken(client)
+func getUrl(id string, httpClient http.Client) (string, string, error) {
+   jar, err := cookiejar.New(nil)
    if err != nil {
-      return "", "", http.Client{}, err
+      return "", "", err
    }
-   sng := []byte(
-      fmt.Sprintf(`{"sng_id": "%v"}`, id),
+   jar.SetCookies(
+      &cookieURL, []*http.Cookie{{Name: "arl", Value: cfg.UserToken}},
    )
-   req, err := newRequest(APIUrl, "POST", sng)
+   httpClient.Jar = jar
+   APIToken, err := getToken(httpClient)
    if err != nil {
-      return "", "", http.Client{}, err
+      return "", "", err
+   }
+   sng := fmt.Sprintf(`{"sng_id": "%v"}`, id)
+   req, err := http.NewRequest("POST", APIUrl, strings.NewReader(sng))
+   if err != nil {
+      return "", "", err
    }
    qs := url.Values{}
    qs.Set("api_version", "1.0")
@@ -174,15 +168,15 @@ func getUrl(id string, client http.Client) (string, string, http.Client, error) 
    qs.Set("input", "3")
    qs.Set("method", "deezer.pageTrack")
    req.URL.RawQuery = qs.Encode()
-   resp, err := client.Do(req)
+   resp, err := httpClient.Do(req)
    if err != nil {
-      return "", "", http.Client{}, err
+      return "", "", err
    }
    defer resp.Body.Close()
    var jsonTrack DeezTrack
    err = json.NewDecoder(resp.Body).Decode(&jsonTrack)
    if err != nil {
-      return "", "", http.Client{}, err
+      return "", "", err
    }
    downloadURL, err := decryptDownload(
       jsonTrack.Results.DATA.MD5Origin,
@@ -191,24 +185,20 @@ func getUrl(id string, client http.Client) (string, string, http.Client, error) 
       jsonTrack.Results.DATA.MediaVersion,
    )
    if err != nil {
-      return "", "", http.Client{}, err
+      return "", "", err
    }
    fName := fmt.Sprintf(
       "%s - %s.mp3",
       jsonTrack.Results.DATA.SngTitle,
       jsonTrack.Results.DATA.ArtName,
    )
-   return downloadURL, fName, client, nil
+   return downloadURL, fName, nil
 }
 
 func login() (http.Client, error) {
-   jar, err := cookiejar.New(nil)
-   if err != nil {
-      return http.Client{}, err
-   }
-   client := http.Client{Jar: jar}
-   req, err := newRequest(APIUrl, "POST", nil)
-   resp, err := client.Do(
+   req, err := http.NewRequest("POST", APIUrl, nil)
+   var httpClient http.Client
+   resp, err := httpClient.Do(
       addQs(req),
    )
    if err != nil {
@@ -223,24 +213,19 @@ func login() (http.Client, error) {
    form := url.Values{}
    form.Set("type", "login")
    form.Set("checkFormLogin", deez.Results.CheckFormLogin)
-   req, err = newRequest(LoginURL, "POST", form.Encode())
+   req, err = http.NewRequest("POST", LoginURL, strings.NewReader(form.Encode()))
    if err != nil {
       return http.Client{}, err
    }
-   resp, err = client.Do(req)
+   resp, err = httpClient.Do(req)
    if err != nil {
       return http.Client{}, err
    }
    defer resp.Body.Close()
-   if resp.StatusCode == 200 {
-      cookies := []*http.Cookie{{
-         Name: "arl",
-         Value: cfg.UserToken,
-      }}
-      client.Jar.SetCookies(&cookieURL, cookies)
-      return client, nil
+   if resp.StatusCode != 200 {
+      return http.Client{}, fmt.Errorf("StatusCode %v", resp.StatusCode)
    }
-   return http.Client{}, fmt.Errorf("StatusCode %v %v", resp.StatusCode, err)
+   return httpClient, nil
 }
 
 func md5Hash(s string) string {
@@ -248,17 +233,6 @@ func md5Hash(s string) string {
    return fmt.Sprintf(
       "%x", md5.Sum(data),
    )
-}
-
-func newRequest(enPoint, method string, bodyEntity interface{}) (*http.Request, error) {
-   switch val := bodyEntity.(type) {
-   case []byte:
-      return http.NewRequest(method, enPoint, bytes.NewBuffer(val))
-   case string:
-      return http.NewRequest(method, enPoint, strings.NewReader(val))
-   default:
-      return http.NewRequest(method, enPoint, nil)
-   }
 }
 
 type Config struct {
@@ -293,26 +267,32 @@ type TrackData struct {
    SngTitle     string `json:"SNG_TITLE"`
 }
 
-type ecb struct {
+type ecbEncrypter struct {
    cipher.Block
+   blockSize int
 }
 
-func newECB(b cipher.Block) ecb {
-   return ecb{b}
+func newECBEncrypter(b cipher.Block) cipher.BlockMode {
+   return ecbEncrypter{
+      b, b.BlockSize(),
+   }
 }
 
-func (x ecb) cryptBlocks(dst, src []byte) error {
+func (x ecbEncrypter) BlockSize() int {
+   return x.blockSize
+}
+
+func (x ecbEncrypter) CryptBlocks(dst, src []byte) {
    size := x.BlockSize()
    if len(src) % size != 0 {
-      return fmt.Errorf("crypto/cipher: input not full blocks")
+      panic("crypto/cipher: input not full blocks")
    }
    if len(dst) < len(src) {
-      return fmt.Errorf("crypto/cipher: output smaller than input")
+      panic("crypto/cipher: output smaller than input")
    }
    for len(src) > 0 {
       x.Encrypt(dst, src[:size])
       src = src[size:]
       dst = dst[size:]
    }
-   return nil
 }

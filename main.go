@@ -18,11 +18,11 @@ func main() {
    if err != nil {
       log.Fatal(err)
    }
-   downloadURL, FName, client, err := getUrl(cfg.ID, client)
+   downloadURL, FName, err := getUrl(cfg.ID, client)
    if err != nil {
       log.Fatal(err)
    }
-   err = getAudioFile(downloadURL, cfg.ID, FName, client)
+   err = getAudioFile(downloadURL, cfg.ID, FName)
    if err != nil {
       log.Fatal(err)
    }
