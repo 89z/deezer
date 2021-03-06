@@ -21,8 +21,6 @@ const (
    deezerCBC = "g4el58wc0zvf9na1"
 )
 
-var cfg = new(Config)
-
 func blowfishDecrypt(buf []byte, blowfishKey string) ([]byte, error) {
    if len(buf) % blowfish.BlockSize != 0 {
       return nil, fmt.Errorf("The Buf is not a multiple of 8")
@@ -110,33 +108,6 @@ func getAudioFile(downloadURL, trackId, FName string) error {
    return decryptMedia(resp.Body, trackId, FName, resp.ContentLength)
 }
 
-func getToken(httpClient http.Client) (string, error) {
-   // we must use Request, as cookies are required
-   req, err := http.NewRequest("GET", APIURL, nil)
-   if err != nil {
-      return "", err
-   }
-   qs := url.Values{}
-   qs.Set("api_version", "1.0")
-   qs.Set("api_token", "null")
-   qs.Set("input", "3")
-   qs.Set("method", "deezer.getUserData")
-   req.URL.RawQuery = qs.Encode()
-   req.AddCookie(&http.Cookie{Name: "arl", Value: cfg.UserToken})
-   resp, err := httpClient.Do(req)
-   if err != nil {
-      return "", err
-   }
-   defer resp.Body.Close()
-   var deez DeezStruct
-   err = json.NewDecoder(resp.Body).Decode(&deez)
-   if err != nil {
-      return "", err
-   }
-   return deez.Results.DeezToken, nil
-}
-
-
 func getUrl(trackId string, httpClient http.Client) (string, string, error) {
    jar, err := cookiejar.New(nil)
    if err != nil {
@@ -195,11 +166,6 @@ func md5Hash(s string) string {
    )
 }
 
-type Config struct {
-   UserToken string
-   trackId string
-}
-
 type Data struct {
    DATA *TrackData `json:"DATA"`
 }
@@ -229,17 +195,14 @@ type TrackData struct {
 
 type ecbEncrypter struct {
    cipher.Block
-   blockSize int
 }
 
 func newECBEncrypter(b cipher.Block) cipher.BlockMode {
-   return ecbEncrypter{
-      b, b.BlockSize(),
-   }
+   return ecbEncrypter{b}
 }
 
 func (x ecbEncrypter) BlockSize() int {
-   return x.blockSize
+   return x.Block.BlockSize()
 }
 
 func (x ecbEncrypter) CryptBlocks(dst, src []byte) {
