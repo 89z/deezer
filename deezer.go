@@ -29,10 +29,10 @@ var deezerAPI = url.URL{
    Scheme: "http", Host: "www.deezer.com", Path: "/ajax/gw-light.php",
 }
 
-func decryptAudio(conf config, read *http.Response, write io.Writer) error {
+func decryptAudio(trackId string, from io.Reader, to io.Writer) error {
    var (
       bfKey []byte
-      trackHash = md5Hash(conf.trackId)
+      trackHash = md5Hash(trackId)
    )
    for n := 0; n < 16; n++ {
       bfKey = append(bfKey, trackHash[n] ^ trackHash[n + 16] ^ deezerCBC[n])
@@ -41,44 +41,47 @@ func decryptAudio(conf config, read *http.Response, write io.Writer) error {
    if err != nil {
       return err
    }
-   var size int64 = 2048
-   for n := 0; read.ContentLength > 0; n++ {
-      if read.ContentLength < size {
-         size = read.ContentLength
-      }
+   var d int
+   for {
+      size := 2048
       text := make([]byte, size)
-      _, err := read.Body.Read(text)
-      if err != nil {
+      n, err := from.Read(text)
+      if err == io.EOF {
+         break
+      } else if err != nil {
          return err
       }
-      if n % 3 == 0 && read.ContentLength > size {
+      if n < size {
+         text = text[:n]
+      }
+      if d % 3 == 0 && n == size {
          cipher.NewCBCDecrypter(block, deezerIv).CryptBlocks(text, text)
       }
-      _, err = write.Write(text)
+      _, err = to.Write(text)
       if err != nil {
          return err
       }
-      read.ContentLength -= size
+      d++
    }
    return nil
 }
 
-func getData(conf config) (deezData, error) {
+func getData(token, trackId string) (deezData, error) {
    jar, err := cookiejar.New(nil)
    if err != nil {
       return deezData{}, err
    }
    http.DefaultClient.Jar = jar
-   val, req := url.Values{}, http.Request{}
+   val, req := url.Values{}, &http.Request{URL: &deezerAPI}
    val.Set("api_version", "1.0")
-   req.URL = &deezerAPI
    // GET
-   val.Set("api_token", "null")
+   val.Set("api_token", "")
    val.Set("method", "deezer.getUserData")
    req.URL.RawQuery = val.Encode()
    req.Header = http.Header{}
-   req.Header.Set("Cookie", "arl=" + conf.userToken)
-   resp, err := http.DefaultClient.Do(&req)
+   req.Header.Set("Cookie", "arl=" + token)
+   fmt.Println("GET", req.URL)
+   resp, err := http.DefaultClient.Do(req)
    if err != nil {
       return deezData{}, err
    }
@@ -95,9 +98,10 @@ func getData(conf config) (deezData, error) {
    req.URL.RawQuery = val.Encode()
    req.Method = "POST"
    req.Body = io.NopCloser(strings.NewReader(
-      fmt.Sprintf(`{"sng_id": "%v"}`, conf.trackId),
+      fmt.Sprintf(`{"sng_id": "%v"}`, trackId),
    ))
-   resp, err = http.DefaultClient.Do(&req)
+   fmt.Println(req.Method, req.URL)
+   resp, err = http.DefaultClient.Do(req)
    if err != nil {
       return deezData{}, err
    }
@@ -111,14 +115,14 @@ func getData(conf config) (deezData, error) {
    return track.Results.Data, nil
 }
 
-func getSource(data deezData) (string, error) {
+func getSource(data deezData, format rune) (string, error) {
    block, err := aes.NewCipher(deezerAES)
    if err != nil {
       return "", err
    }
    plain := fmt.Sprint(
       data.MD5Origin, "\xa4",
-      string(deezer320), "\xa4",
+      string(format), "\xa4",
       data.SngId, "\xa4",
       data.MediaVersion,
    )
@@ -139,11 +143,6 @@ func md5Hash(s string) string {
    return fmt.Sprintf(
       "%x", md5.Sum(b),
    )
-}
-
-type config struct {
-   userToken string
-   trackId string
 }
 
 type deezCheck struct {
@@ -187,8 +186,7 @@ func (x ecbEncrypter) CryptBlocks(dst, src []byte) {
       panic("crypto/cipher: output smaller than input")
    }
    for len(src) > 0 {
-      x.Encrypt(dst, src[:size])
-      src = src[size:]
-      dst = dst[size:]
+      x.Encrypt(dst, src)
+      src, dst = src[size:], dst[size:]
    }
 }

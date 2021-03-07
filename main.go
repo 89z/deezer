@@ -9,22 +9,23 @@ import (
 )
 
 func main() {
-   var conf config
-   flag.StringVar(&conf.userToken, "usertoken", "", "Your Unique User Token")
-   flag.StringVar(&conf.trackId, "id", "", "Deezer Track ID")
+   var token, trackId string
+   flag.StringVar(&token, "usertoken", "", "Your Unique User Token")
+   flag.StringVar(&trackId, "id", "", "Deezer Track ID")
    flag.Parse()
-   if conf.trackId == "" {
+   if trackId == "" {
       flag.PrintDefaults()
       os.Exit(1)
    }
-   data, err := getData(conf)
+   data, err := getData(token, trackId)
    if err != nil {
       log.Fatal(err)
    }
-   source, err := getSource(data)
+   source, err := getSource(data, deezer320)
    if err != nil {
       log.Fatal(err)
    }
+   fmt.Println("GET", source)
    get, err := http.Get(source)
    if err != nil {
       log.Fatal(err)
@@ -37,7 +38,7 @@ func main() {
       log.Fatal(err)
    }
    defer create.Close()
-   err = decryptAudio(conf, get, create)
+   err = decryptAudio(trackId, get.Body, create)
    if err != nil {
       log.Fatal(err)
    }
