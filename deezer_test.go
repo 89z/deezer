@@ -27,8 +27,4 @@ func TestMain(t *testing.T) {
    if hash != "87207d3416377217f835b887c74f4300" {
       t.Error(hash)
    }
-   e = os.Remove(file)
-   if e != nil {
-      t.Error(e)
-   }
 }

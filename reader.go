@@ -8,13 +8,6 @@ import (
    "net/http"
 )
 
-type reader struct {
-   cipher.BlockMode
-   io.Reader
-   loop int
-   size int
-}
-
 func newReader(sngId, source string) (io.Reader, error) {
    var (
       bfKey []byte
@@ -35,23 +28,29 @@ func newReader(sngId, source string) (io.Reader, error) {
    return &reader{
       BlockMode: cipher.NewCBCDecrypter(block, deezerIv),
       Reader: get.Body,
-      size: 2048,
+      text: make([]byte, 2048),
    }, nil
 }
 
-func (r *reader) Read(text []byte) (int, error) {
-   n, err := r.Reader.Read(text)
+type reader struct {
+   cipher.BlockMode
+   io.Reader
+   loop int
+   text []byte
+}
+
+func (r *reader) Read(b []byte) (int, error) {
+   n, err := r.Reader.Read(r.text)
    if err != nil {
       return 0, err
    }
-   if n < r.size {
-      text = text[:n]
-   }
-   if r.loop % 3 == 0 && n == r.size {
-      r.CryptBlocks(text, text)
+   if n < len(r.text) {
+      r.text = r.text[:n]
+   } else if r.loop % 3 == 0 {
+      r.CryptBlocks(r.text, r.text)
    }
    r.loop++
-   return n, nil
+   return copy(b, r.text), nil
 }
 
 /*

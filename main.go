@@ -3,6 +3,7 @@ package main
 import (
    "flag"
    "fmt"
+   "io"
    "log"
    "net/http"
    "os"
@@ -32,22 +33,25 @@ func main() {
       log.Fatal(err)
    }
    defer create.Close()
-   /*
-   read, err := newReader(sngId, source)
+   err = oldRead(sngId, source, create)
    if err != nil {
       log.Fatal(err)
    }
-   _, err = create.ReadFrom(read)
+}
+
+func oldRead(sngId, from string, to io.Writer) error {
+   get, err := http.Get(from)
    if err != nil {
-      log.Fatal(err)
+      return err
    }
-   */
-   get, err := http.Get(source)
+   return decryptAudio(sngId, get.Body, to)
+}
+
+func newRead(sngId, from string, to io.Writer) error {
+   source, err := newReader(sngId, from)
    if err != nil {
-      log.Fatal(err)
+      return err
    }
-   err = decryptAudio(sngId, get.Body, create)
-   if err != nil {
-      log.Fatal(err)
-   }
+   _, err = io.Copy(to, source)
+   return err
 }
