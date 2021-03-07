@@ -14,8 +14,6 @@ import (
    "strings"
 )
 
-const deezerAPI = "http://www.deezer.com/ajax/gw-light.php"
-
 const (
    deezer320 = '3'
    deezerFlac = '9'
@@ -27,84 +25,11 @@ var (
    deezerIv = []byte{0, 1, 2, 3, 4, 5, 6, 7}
 )
 
-func getData(conf config) (deezData, error) {
-   // client
-   jar, err := cookiejar.New(nil)
-   if err != nil {
-      return deezData{}, err
-   }
-   client := http.Client{Jar: jar}
-   // we must use Request, as cookies are required
-   req, err := http.NewRequest("GET", deezerAPI, nil)
-   if err != nil {
-      return deezData{}, err
-   }
-   qs := url.Values{}
-   qs.Set("api_version", "1.0")
-   qs.Set("api_token", "null")
-   qs.Set("method", "deezer.getUserData")
-   req.URL.RawQuery = qs.Encode()
-   req.AddCookie(&http.Cookie{Name: "arl", Value: conf.userToken})
-   // send
-   resp, err := client.Do(req)
-   if err != nil {
-      return deezData{}, err
-   }
-   defer resp.Body.Close()
-   var check deezCheck
-   err = json.NewDecoder(resp.Body).Decode(&check)
-   if err != nil {
-      return deezData{}, err
-   }
-   sng := fmt.Sprintf(`{"sng_id": "%v"}`, conf.trackId)
-   // we must use Request, as cookies are required
-   req, err = http.NewRequest("POST", deezerAPI, strings.NewReader(sng))
-   if err != nil {
-      return deezData{}, err
-   }
-   qs = url.Values{}
-   qs.Set("api_version", "1.0")
-   qs.Set("api_token", check.Results.CheckForm)
-   qs.Set("method", "deezer.pageTrack")
-   req.URL.RawQuery = qs.Encode()
-   // read cookies
-   resp, err = client.Do(req)
-   if err != nil {
-      return deezData{}, err
-   }
-   defer resp.Body.Close()
-   var track deezTrack
-   err = json.NewDecoder(resp.Body).Decode(&track)
-   if err != nil {
-      return deezData{}, err
-   }
-   return track.Results.Data, nil
+var deezerAPI = url.URL{
+   Scheme: "http", Host: "www.deezer.com", Path: "/ajax/gw-light.php",
 }
 
-func decryptDownload(data deezData) (string, error) {
-   block, err := aes.NewCipher(deezerAES)
-   if err != nil {
-      return "", err
-   }
-   plain := fmt.Sprint(
-      data.MD5Origin, "\xa4",
-      string(deezer320), "\xa4",
-      data.SngId, "\xa4",
-      data.MediaVersion,
-   )
-   text := []byte(
-      md5Hash(plain) + "\xa4" + plain,
-   )
-   for len(text) % aes.BlockSize > 0 {
-      text = append(text, 0)
-   }
-   newECBEncrypter(block).CryptBlocks(text, text)
-   return fmt.Sprintf(
-      "https://e-cdns-proxy-%c.dzcdn.net/mobile/1/%x", data.MD5Origin[0], text,
-   ), nil
-}
-
-func decryptMedia(conf config, read *http.Response, write io.Writer) error {
+func decryptAudio(conf config, read *http.Response, write io.Writer) error {
    var (
       bfKey []byte
       trackHash = md5Hash(conf.trackId)
@@ -138,6 +63,76 @@ func decryptMedia(conf config, read *http.Response, write io.Writer) error {
    return nil
 }
 
+func getData(conf config) (deezData, error) {
+   jar, err := cookiejar.New(nil)
+   if err != nil {
+      return deezData{}, err
+   }
+   http.DefaultClient.Jar = jar
+   val, req := url.Values{}, http.Request{}
+   val.Set("api_version", "1.0")
+   req.URL = &deezerAPI
+   // GET
+   val.Set("api_token", "null")
+   val.Set("method", "deezer.getUserData")
+   req.URL.RawQuery = val.Encode()
+   req.Header = http.Header{}
+   req.Header.Set("Cookie", "arl=" + conf.userToken)
+   resp, err := http.DefaultClient.Do(&req)
+   if err != nil {
+      return deezData{}, err
+   }
+   defer resp.Body.Close()
+   // JSON
+   var check deezCheck
+   err = json.NewDecoder(resp.Body).Decode(&check)
+   if err != nil {
+      return deezData{}, err
+   }
+   // POST
+   val.Set("api_token", check.Results.CheckForm)
+   val.Set("method", "deezer.pageTrack")
+   req.URL.RawQuery = val.Encode()
+   req.Method = "POST"
+   req.Body = io.NopCloser(strings.NewReader(
+      fmt.Sprintf(`{"sng_id": "%v"}`, conf.trackId),
+   ))
+   resp, err = http.DefaultClient.Do(&req)
+   if err != nil {
+      return deezData{}, err
+   }
+   defer resp.Body.Close()
+   // JSON
+   var track deezTrack
+   err = json.NewDecoder(resp.Body).Decode(&track)
+   if err != nil {
+      return deezData{}, err
+   }
+   return track.Results.Data, nil
+}
+
+func getSource(data deezData) (string, error) {
+   block, err := aes.NewCipher(deezerAES)
+   if err != nil {
+      return "", err
+   }
+   plain := fmt.Sprint(
+      data.MD5Origin, "\xa4",
+      string(deezer320), "\xa4",
+      data.SngId, "\xa4",
+      data.MediaVersion,
+   )
+   text := []byte(
+      md5Hash(plain) + "\xa4" + plain,
+   )
+   for len(text) % aes.BlockSize > 0 {
+      text = append(text, 0)
+   }
+   newECBEncrypter(block).CryptBlocks(text, text)
+   return fmt.Sprintf(
+      "https://e-cdns-proxy-%c.dzcdn.net/mobile/1/%x", data.MD5Origin[0], text,
+   ), nil
+}
 
 func md5Hash(s string) string {
    b := []byte(s)

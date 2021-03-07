@@ -21,7 +21,7 @@ func main() {
    if err != nil {
       log.Fatal(err)
    }
-   source, err := decryptDownload(data)
+   source, err := getSource(data)
    if err != nil {
       log.Fatal(err)
    }
@@ -37,7 +37,7 @@ func main() {
       log.Fatal(err)
    }
    defer create.Close()
-   err = decryptMedia(conf, get, create)
+   err = decryptAudio(conf, get, create)
    if err != nil {
       log.Fatal(err)
    }
