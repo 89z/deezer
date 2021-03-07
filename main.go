@@ -25,12 +25,6 @@ func main() {
    if err != nil {
       log.Fatal(err)
    }
-   fmt.Println("GET", source)
-   get, err := http.Get(source)
-   if err != nil {
-      log.Fatal(err)
-   }
-   defer get.Body.Close()
    create, err := os.Create(
       fmt.Sprintf("%s - %s.mp3", data.ArtName, data.SngTitle),
    )
@@ -38,6 +32,20 @@ func main() {
       log.Fatal(err)
    }
    defer create.Close()
+   /*
+   read, err := newReader(sngId, source)
+   if err != nil {
+      log.Fatal(err)
+   }
+   _, err = create.ReadFrom(read)
+   if err != nil {
+      log.Fatal(err)
+   }
+   */
+   get, err := http.Get(source)
+   if err != nil {
+      log.Fatal(err)
+   }
    err = decryptAudio(sngId, get.Body, create)
    if err != nil {
       log.Fatal(err)
