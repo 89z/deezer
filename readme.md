@@ -2,8 +2,23 @@
 
 Download audio from Deezer
 
-- https://www.deezer.com/us/album/7476543
-- https://www.deezer.com/us/track/75498415
+https://www.deezer.com/us/track/75498415
+
+## API
+
+getData:
+
+given a SNG_ID, return Results.Data
+
+getSource:
+
+given SNG_ID, Results.Data and Quality, return Audio URL
+
+decryptAudio:
+
+given SNG_ID and Audio URL, return io.Reader
+
+https://pkg.go.dev/github.com/godeezer/lib/deezer#Client.Download
 
 ## Thanks
 

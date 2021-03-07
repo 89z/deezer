@@ -9,19 +9,19 @@ import (
 )
 
 func main() {
-   var token, trackId string
+   var sngId, token string
+   flag.StringVar(&sngId, "id", "", "Deezer Track ID")
    flag.StringVar(&token, "usertoken", "", "Your Unique User Token")
-   flag.StringVar(&trackId, "id", "", "Deezer Track ID")
    flag.Parse()
-   if trackId == "" {
+   if sngId == "" {
       flag.PrintDefaults()
       os.Exit(1)
    }
-   data, err := getData(token, trackId)
+   data, err := getData(token, sngId)
    if err != nil {
       log.Fatal(err)
    }
-   source, err := getSource(data, deezer320)
+   source, err := getSource(sngId, data, deezer320)
    if err != nil {
       log.Fatal(err)
    }
@@ -38,7 +38,7 @@ func main() {
       log.Fatal(err)
    }
    defer create.Close()
-   err = decryptAudio(trackId, get.Body, create)
+   err = decryptAudio(sngId, get.Body, create)
    if err != nil {
       log.Fatal(err)
    }

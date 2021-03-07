@@ -29,44 +29,7 @@ var deezerAPI = url.URL{
    Scheme: "http", Host: "www.deezer.com", Path: "/ajax/gw-light.php",
 }
 
-func decryptAudio(trackId string, from io.Reader, to io.Writer) error {
-   var (
-      bfKey []byte
-      trackHash = md5Hash(trackId)
-   )
-   for n := 0; n < 16; n++ {
-      bfKey = append(bfKey, trackHash[n] ^ trackHash[n + 16] ^ deezerCBC[n])
-   }
-   block, err := blowfish.NewCipher(bfKey)
-   if err != nil {
-      return err
-   }
-   var d int
-   for {
-      size := 2048
-      text := make([]byte, size)
-      n, err := from.Read(text)
-      if err == io.EOF {
-         break
-      } else if err != nil {
-         return err
-      }
-      if n < size {
-         text = text[:n]
-      }
-      if d % 3 == 0 && n == size {
-         cipher.NewCBCDecrypter(block, deezerIv).CryptBlocks(text, text)
-      }
-      _, err = to.Write(text)
-      if err != nil {
-         return err
-      }
-      d++
-   }
-   return nil
-}
-
-func getData(token, trackId string) (deezData, error) {
+func getData(token, sngId string) (deezData, error) {
    jar, err := cookiejar.New(nil)
    if err != nil {
       return deezData{}, err
@@ -98,7 +61,7 @@ func getData(token, trackId string) (deezData, error) {
    req.URL.RawQuery = val.Encode()
    req.Method = "POST"
    req.Body = io.NopCloser(strings.NewReader(
-      fmt.Sprintf(`{"sng_id": "%v"}`, trackId),
+      fmt.Sprintf(`{"sng_id": "%v"}`, sngId),
    ))
    fmt.Println(req.Method, req.URL)
    resp, err = http.DefaultClient.Do(req)
@@ -115,7 +78,7 @@ func getData(token, trackId string) (deezData, error) {
    return track.Results.Data, nil
 }
 
-func getSource(data deezData, format rune) (string, error) {
+func getSource(sngId string, data deezData, format rune) (string, error) {
    block, err := aes.NewCipher(deezerAES)
    if err != nil {
       return "", err
@@ -123,7 +86,7 @@ func getSource(data deezData, format rune) (string, error) {
    plain := fmt.Sprint(
       data.MD5Origin, "\xa4",
       string(format), "\xa4",
-      data.SngId, "\xa4",
+      sngId, "\xa4",
       data.MediaVersion,
    )
    text := []byte(
@@ -133,9 +96,12 @@ func getSource(data deezData, format rune) (string, error) {
       text = append(text, 0)
    }
    newECBEncrypter(block).CryptBlocks(text, text)
-   return fmt.Sprintf(
-      "https://e-cdns-proxy-%c.dzcdn.net/mobile/1/%x", data.MD5Origin[0], text,
-   ), nil
+   source := url.URL{
+      Scheme: "https",
+      Host: fmt.Sprintf("e-cdns-proxy-%c.dzcdn.net", data.MD5Origin[0]),
+      Path: fmt.Sprintf("mobile/1/%x", text),
+   }
+   return source.String(), nil
 }
 
 func md5Hash(s string) string {
@@ -155,7 +121,6 @@ type deezData struct {
    ArtName      string `json:"ART_NAME"`
    MD5Origin    string `json:"MD5_ORIGIN"`
    MediaVersion string `json:"MEDIA_VERSION"`
-   SngId        string `json:"SNG_ID"`
    SngTitle     string `json:"SNG_TITLE"`
 }
 
@@ -189,4 +154,41 @@ func (x ecbEncrypter) CryptBlocks(dst, src []byte) {
       x.Encrypt(dst, src)
       src, dst = src[size:], dst[size:]
    }
+}
+
+func decryptAudio(sngId string, from io.Reader, to io.Writer) error {
+   var (
+      bfKey []byte
+      trackHash = md5Hash(sngId)
+   )
+   for n := 0; n < 16; n++ {
+      bfKey = append(bfKey, trackHash[n] ^ trackHash[n + 16] ^ deezerCBC[n])
+   }
+   block, err := blowfish.NewCipher(bfKey)
+   if err != nil {
+      return err
+   }
+   var d int
+   for {
+      size := 2048
+      text := make([]byte, size)
+      n, err := from.Read(text)
+      if err == io.EOF {
+         break
+      } else if err != nil {
+         return err
+      }
+      if n < size {
+         text = text[:n]
+      }
+      if d % 3 == 0 && n == size {
+         cipher.NewCBCDecrypter(block, deezerIv).CryptBlocks(text, text)
+      }
+      _, err = to.Write(text)
+      if err != nil {
+         return err
+      }
+      d++
+   }
+   return nil
 }
