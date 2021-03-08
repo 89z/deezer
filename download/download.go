@@ -1,9 +1,9 @@
 package main
 
 import (
+   "deezer"
    "flag"
    "fmt"
-   "io"
    "log"
    "os"
 )
@@ -23,15 +23,15 @@ func main() {
       flag.PrintDefaults()
       os.Exit(1)
    }
-   data, err := getData(token, sngId)
+   data, err := deezer.GetData(sngId, token)
    check(err)
-   source, err := getSource(sngId, data, deezer320)
+   source, err := deezer.GetSource(sngId, data, deezer.MP3_320)
    check(err)
-   from, err := newReader(sngId, source)
+   from, err := deezer.NewReader(sngId, source)
    check(err)
    to, err := os.Create(
       fmt.Sprintf("%s - %s.mp3", data.ArtName, data.SngTitle),
    )
    check(err)
-   io.Copy(to, from)
+   to.ReadFrom(from)
 }

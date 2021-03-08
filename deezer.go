@@ -1,4 +1,4 @@
-package main
+package deezer
 
 import (
    "crypto/aes"
@@ -15,8 +15,8 @@ import (
 )
 
 const (
-   deezer320 = '3'
-   deezerFlac = '9'
+   FLAC = '9'
+   MP3_320 = '3'
 )
 
 var (
@@ -29,7 +29,7 @@ var deezerAPI = url.URL{
    Scheme: "http", Host: "www.deezer.com", Path: "/ajax/gw-light.php",
 }
 
-func getData(token, sngId string) (deezData, error) {
+func GetData(sngId, token string) (deezData, error) {
    jar, err := cookiejar.New(nil)
    if err != nil {
       return deezData{}, err
@@ -78,7 +78,7 @@ func getData(token, sngId string) (deezData, error) {
    return track.Results.Data, nil
 }
 
-func getSource(sngId string, data deezData, format rune) (string, error) {
+func GetSource(sngId string, data deezData, format rune) (string, error) {
    block, err := aes.NewCipher(deezerAES)
    if err != nil {
       return "", err
@@ -163,7 +163,7 @@ type reader struct {
    size int
 }
 
-func newReader(sngId, source string) (io.Reader, error) {
+func NewReader(sngId, source string) (io.Reader, error) {
    var (
       bfKey []byte
       trackHash = md5Hash(sngId)

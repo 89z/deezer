@@ -19,11 +19,9 @@ getSource:
 
 given SNG_ID, Results.Data and Quality, return Audio URL
 
-decryptAudio:
+newReader:
 
 given SNG_ID and Audio URL, return io.Reader
-
-https://github.com/godeezer/lib/blob/8e011608/deezer/crypto.go#L87-L97
 
 ## Thanks
 

@@ -1,4 +1,4 @@
-package main
+package deezer
 
 import (
    "io/ioutil"
@@ -11,24 +11,62 @@ const token = "0e21c80ef0b963e68cf5d0a951fc918def86c2188a44b33ab353088f15d7b4" +
 "087ed699e6dcd6293514f49439a7d2a7c86bdbcb6e0efae1acd029ec4f267a07b541bfe13872" +
 "c5e5715db846bc784701c3794c328411b5cca332d695b37c1946c1"
 
-func TestMain(t *testing.T) {
-   c := exec.Command("deezer.exe", "-id", "75498418", "-usertoken", token)
+const (
+   hash = "87207d3416377217f835b887c74f4300"
+   sngId = "75498418"
+)
+
+const length = 5_426_154
+
+func _TestOld(t *testing.T) {
+   c := exec.Command("download/download", "-id", sngId, "-usertoken", token)
    c.Stderr, c.Stdout = os.Stderr, os.Stdout
-   e := c.Run()
-   if e != nil {
-      t.Error(e)
+   err := c.Run()
+   if err != nil {
+      t.Error(err)
    }
    file := "Julia Holter - Für Felix.mp3"
-   data, e := ioutil.ReadFile(file)
-   if e != nil {
-      t.Error(e)
+   data, err := ioutil.ReadFile(file)
+   if err != nil {
+      t.Error(err)
    }
-   hash := md5Hash(string(data))
-   if hash != "87207d3416377217f835b887c74f4300" {
-      t.Error(hash)
+   testLen := len(data)
+   if testLen != length {
+      t.Error(testLen)
    }
-   e = os.Remove(file)
-   if e != nil {
-      t.Error(e)
+   testHash := md5Hash(string(data))
+   if testHash != hash {
+      t.Error(testHash)
+   }
+   err = os.Remove(file)
+   if err != nil {
+      t.Error(err)
+   }
+}
+
+func TestNew(t *testing.T) {
+   data, err := GetData(sngId, token)
+   if err != nil {
+      t.Error(err)
+   }
+   source, err := GetSource(sngId, data, MP3_320)
+   if err != nil {
+      t.Error(err)
+   }
+   from, err := NewReader(sngId, source)
+   if err != nil {
+      t.Error(err)
+   }
+   to, err := ioutil.ReadAll(from)
+   if err != nil {
+      t.Error(err)
+   }
+   testLen := len(to)
+   if testLen != length {
+      t.Error(testLen)
+   }
+   testHash := md5Hash(string(to))
+   if testHash != hash {
+      t.Error(testHash)
    }
 }
