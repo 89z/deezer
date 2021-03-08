@@ -9,19 +9,7 @@
 
 Download audio from Deezer
 
-## API
-
-getData:
-
-given a SNG_ID, return Results.Data
-
-getSource:
-
-given SNG_ID, Results.Data and Quality, return Audio URL
-
-newReader:
-
-given SNG_ID and Audio URL, return io.Reader
+https://pkg.go.dev/github.com/89z/deezer
 
 ## Thanks
 
