@@ -1,10 +1,12 @@
 package main
 
 import (
-   "deezer"
    "flag"
    "fmt"
+   "github.com/89z/deezer"
+   "io/ioutil"
    "log"
+   "net/http"
    "os"
 )
 
@@ -27,11 +29,12 @@ func main() {
    check(err)
    source, err := deezer.GetSource(sngId, data, deezer.MP3_320)
    check(err)
-   from, err := deezer.NewReader(sngId, source)
+   get, err := http.Get(source)
    check(err)
-   to, err := os.Create(
-      fmt.Sprintf("%s - %s.mp3", data.ArtName, data.SngTitle),
+   body, err := ioutil.ReadAll(get.Body)
+   check(err)
+   deezer.Decrypt(sngId, body)
+   ioutil.WriteFile(
+      fmt.Sprintf("%s - %s.mp3", data.ArtName, data.SngTitle), body, os.ModePerm,
    )
-   check(err)
-   to.ReadFrom(from)
 }

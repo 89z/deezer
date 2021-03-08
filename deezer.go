@@ -19,14 +19,33 @@ const (
    MP3_320 = '3'
 )
 
+var API = url.URL{
+   Scheme: "http", Host: "www.deezer.com", Path: "/ajax/gw-light.php",
+}
+
 var (
-   deezerAES = []byte("jo6aey6haid2Teih")
-   deezerCBC = []byte("g4el58wc0zvf9na1")
-   deezerIv = []byte{0, 1, 2, 3, 4, 5, 6, 7}
+   keyAES = []byte("jo6aey6haid2Teih")
+   keyBlowfish = []byte("g4el58wc0zvf9na1")
+   iv = []byte{0, 1, 2, 3, 4, 5, 6, 7}
 )
 
-var deezerAPI = url.URL{
-   Scheme: "http", Host: "www.deezer.com", Path: "/ajax/gw-light.php",
+func Decrypt(sngId string, data []byte) error {
+   hash := md5Hash(sngId)
+   for n := range keyBlowfish {
+      keyBlowfish[n] ^= hash[n] ^ hash[n + len(keyBlowfish)]
+   }
+   block, err := blowfish.NewCipher(keyBlowfish)
+   if err != nil {
+      return err
+   }
+   size := 2048
+   for pos := 0; len(data) - pos >= size; pos += size {
+      if pos / size % 3 == 0 {
+         text := data[pos : pos + size]
+         cipher.NewCBCDecrypter(block, iv).CryptBlocks(text, text)
+      }
+   }
+   return nil
 }
 
 func GetData(sngId, token string) (deezData, error) {
@@ -35,7 +54,7 @@ func GetData(sngId, token string) (deezData, error) {
       return deezData{}, err
    }
    http.DefaultClient.Jar = jar
-   val, req := url.Values{}, &http.Request{URL: &deezerAPI}
+   val, req := url.Values{}, &http.Request{URL: &API}
    val.Set("api_version", "1.0")
    // GET
    val.Set("api_token", "")
@@ -79,7 +98,7 @@ func GetData(sngId, token string) (deezData, error) {
 }
 
 func GetSource(sngId string, data deezData, format rune) (string, error) {
-   block, err := aes.NewCipher(deezerAES)
+   block, err := aes.NewCipher(keyAES)
    if err != nil {
       return "", err
    }
@@ -154,62 +173,4 @@ func (x ecbEncrypter) CryptBlocks(dst, src []byte) {
       x.Encrypt(dst, src)
       src, dst = src[size:], dst[size:]
    }
-}
-
-type reader struct {
-   *blowfish.Cipher
-   io.Reader
-   loop int
-   size int
-}
-
-func NewReader(sngId, source string) (io.Reader, error) {
-   var (
-      bfKey []byte
-      trackHash = md5Hash(sngId)
-   )
-   for n := 0; n < 16; n++ {
-      bfKey = append(bfKey, trackHash[n] ^ trackHash[n + 16] ^ deezerCBC[n])
-   }
-   block, err := blowfish.NewCipher(bfKey)
-   if err != nil {
-      return nil, err
-   }
-   fmt.Println("Get", source)
-   get, err := http.Get(source)
-   if err != nil {
-      return nil, err
-   }
-   return &reader{Cipher: block, Reader: get.Body, size: 2048}, nil
-}
-
-/*
-256
-512
-768
-1024
-1280
-1408
-2688
-2816
-4096
-6784
-8192
-13696
-16384
-24576
-32768
-40960
-49152
-*/
-func (r *reader) Read(data []byte) (int, error) {
-   d, err := r.Reader.Read(data)
-   for e := 0; d - e >= r.size; e += r.size {
-      if r.loop % 3 == 0 {
-         text := data[e : e + r.size]
-         cipher.NewCBCDecrypter(r.Cipher, deezerIv).CryptBlocks(text, text)
-      }
-      r.loop++
-   }
-   return d, err
 }

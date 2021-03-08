@@ -11,17 +11,17 @@ Download audio from Deezer
 
 ## API
 
-getData:
+GetData:
 
-given a SNG_ID, return Results.Data
+Given a SNG_ID, return Results.Data
 
-getSource:
+GetSource:
 
-given SNG_ID, Results.Data and Quality, return Audio URL
+Given SNG_ID, Results.Data and quality, return audio URL
 
-newReader:
+Decrypt:
 
-given SNG_ID and Audio URL, return io.Reader
+Given SNG_ID and byte slice, decrypt byte slice in place
 
 ## Thanks
 
