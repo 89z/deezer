@@ -183,6 +183,25 @@ func NewReader(sngId, source string) (io.Reader, error) {
    return &reader{Cipher: block, Reader: get.Body, size: 2048}, nil
 }
 
+/*
+256
+512
+768
+1024
+1280
+1408
+2688
+2816
+4096
+6784
+8192
+13696
+16384
+24576
+32768
+40960
+49152
+*/
 func (r *reader) Read(data []byte) (int, error) {
    d, err := r.Reader.Read(data)
    for e := 0; d - e >= r.size; e += r.size {

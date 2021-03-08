@@ -16,8 +16,6 @@ const (
    sngId = "75498418"
 )
 
-const length = 5_426_154
-
 func _TestOld(t *testing.T) {
    c := exec.Command("download/download", "-id", sngId, "-usertoken", token)
    c.Stderr, c.Stdout = os.Stderr, os.Stdout
@@ -25,22 +23,13 @@ func _TestOld(t *testing.T) {
    if err != nil {
       t.Error(err)
    }
-   file := "Julia Holter - Für Felix.mp3"
-   data, err := ioutil.ReadFile(file)
+   data, err := ioutil.ReadFile("Julia Holter - Für Felix.mp3")
    if err != nil {
       t.Error(err)
-   }
-   testLen := len(data)
-   if testLen != length {
-      t.Error(testLen)
    }
    testHash := md5Hash(string(data))
    if testHash != hash {
       t.Error(testHash)
-   }
-   err = os.Remove(file)
-   if err != nil {
-      t.Error(err)
    }
 }
 
@@ -61,12 +50,9 @@ func TestNew(t *testing.T) {
    if err != nil {
       t.Error(err)
    }
-   testLen := len(to)
-   if testLen != length {
-      t.Error(testLen)
-   }
    testHash := md5Hash(string(to))
    if testHash != hash {
       t.Error(testHash)
    }
+   ioutil.WriteFile("fail.mp3", to, os.ModePerm)
 }
