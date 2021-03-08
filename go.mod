@@ -1,4 +1,4 @@
-module deezer
+module github.com/89z/deezer
 
 go 1.16
 

@@ -29,6 +29,28 @@ var deezerAPI = url.URL{
    Scheme: "http", Host: "www.deezer.com", Path: "/ajax/gw-light.php",
 }
 
+func Decrypt(sngId string, data []byte) error {
+   var (
+      bfKey []byte
+      trackHash = md5Hash(sngId)
+   )
+   for n := 0; n < 16; n++ {
+      bfKey = append(bfKey, trackHash[n] ^ trackHash[n + 16] ^ deezerCBC[n])
+   }
+   block, err := blowfish.NewCipher(bfKey)
+   if err != nil {
+      return err
+   }
+   size := 2048
+   for pos := 0; len(data) - pos >= size; pos += size {
+      if pos / size % 3 == 0 {
+         text := data[pos : pos + size]
+         cipher.NewCBCDecrypter(block, deezerIv).CryptBlocks(text, text)
+      }
+   }
+   return nil
+}
+
 func GetData(sngId, token string) (deezData, error) {
    jar, err := cookiejar.New(nil)
    if err != nil {
@@ -154,62 +176,4 @@ func (x ecbEncrypter) CryptBlocks(dst, src []byte) {
       x.Encrypt(dst, src)
       src, dst = src[size:], dst[size:]
    }
-}
-
-type reader struct {
-   *blowfish.Cipher
-   io.Reader
-   loop int
-   size int
-}
-
-func NewReader(sngId, source string) (io.Reader, error) {
-   var (
-      bfKey []byte
-      trackHash = md5Hash(sngId)
-   )
-   for n := 0; n < 16; n++ {
-      bfKey = append(bfKey, trackHash[n] ^ trackHash[n + 16] ^ deezerCBC[n])
-   }
-   block, err := blowfish.NewCipher(bfKey)
-   if err != nil {
-      return nil, err
-   }
-   fmt.Println("Get", source)
-   get, err := http.Get(source)
-   if err != nil {
-      return nil, err
-   }
-   return &reader{Cipher: block, Reader: get.Body, size: 2048}, nil
-}
-
-/*
-256
-512
-768
-1024
-1280
-1408
-2688
-2816
-4096
-6784
-8192
-13696
-16384
-24576
-32768
-40960
-49152
-*/
-func (r *reader) Read(data []byte) (int, error) {
-   d, err := r.Reader.Read(data)
-   for e := 0; d - e >= r.size; e += r.size {
-      if r.loop % 3 == 0 {
-         text := data[e : e + r.size]
-         cipher.NewCBCDecrypter(r.Cipher, deezerIv).CryptBlocks(text, text)
-      }
-      r.loop++
-   }
-   return d, err
 }
