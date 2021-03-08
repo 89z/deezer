@@ -1,10 +1,13 @@
+// Command line tool to download Deezer track
 package main
 
 import (
-   "deezer"
    "flag"
    "fmt"
+   "github.com/89z/deezer"
+   "io/ioutil"
    "log"
+   "net/http"
    "os"
 )
 
@@ -23,15 +26,18 @@ func main() {
       flag.PrintDefaults()
       os.Exit(1)
    }
-   data, err := deezer.GetData(sngId, token)
+   track, err := deezer.NewTrack(sngId, token)
    check(err)
-   source, err := deezer.GetSource(sngId, data, deezer.MP3_320)
+   source, err := track.GetSource(sngId, deezer.MP3_320)
    check(err)
-   from, err := deezer.NewReader(sngId, source)
+   get, err := http.Get(source)
    check(err)
-   to, err := os.Create(
-      fmt.Sprintf("%s - %s.mp3", data.ArtName, data.SngTitle),
+   body, err := ioutil.ReadAll(get.Body)
+   check(err)
+   deezer.Decrypt(sngId, body)
+   ioutil.WriteFile(
+      fmt.Sprintf("%s - %s.mp3", track.ArtName, track.SngTitle),
+      body,
+      os.ModePerm,
    )
-   check(err)
-   to.ReadFrom(from)
 }
