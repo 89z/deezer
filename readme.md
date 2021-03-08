@@ -18,7 +18,7 @@ decryptAudio:
 
 given SNG_ID and Audio URL, return io.Reader
 
-https://pkg.go.dev/github.com/godeezer/lib/deezer#Client.Download
+https://github.com/godeezer/lib/blob/8e011608/deezer/crypto.go#L87-L97
 
 ## Thanks
 

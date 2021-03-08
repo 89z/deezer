@@ -25,41 +25,24 @@ func newReader(sngId, source string) (io.Reader, error) {
    if err != nil {
       return nil, err
    }
-   return &reader{
-      BlockMode: cipher.NewCBCDecrypter(block, deezerIv),
-      Reader: get.Body,
-      text: make([]byte, 2048),
-   }, nil
+   return &reader{Cipher: block, Reader: get.Body, size: 2048}, nil
 }
 
 type reader struct {
-   cipher.BlockMode
+   *blowfish.Cipher
    io.Reader
    loop int
-   text []byte
+   size int
 }
 
-func (r *reader) Read(b []byte) (int, error) {
-   n, err := r.Reader.Read(r.text)
-   if err != nil {
-      return 0, err
+func (r *reader) Read(data []byte) (int, error) {
+   d, err := r.Reader.Read(data)
+   for e := 0; d - e >= r.size; e += r.size {
+      if r.loop % 3 == 0 {
+         text := data[e : e + r.size]
+         cipher.NewCBCDecrypter(r.Cipher, deezerIv).CryptBlocks(text, text)
+      }
+      r.loop++
    }
-   if n < len(r.text) {
-      r.text = r.text[:n]
-   } else if r.loop % 3 == 0 {
-      r.CryptBlocks(r.text, r.text)
-   }
-   r.loop++
-   return copy(b, r.text), nil
+   return d, err
 }
-
-/*
-16384
-16384
-
-32768
-32768
-
-last
-19434
-*/

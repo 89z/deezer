@@ -5,7 +5,6 @@ import (
    "fmt"
    "io"
    "log"
-   "net/http"
    "os"
 )
 
@@ -33,18 +32,10 @@ func main() {
       log.Fatal(err)
    }
    defer create.Close()
-   err = oldRead(sngId, source, create)
+   err = newRead(sngId, source, create)
    if err != nil {
       log.Fatal(err)
    }
-}
-
-func oldRead(sngId, from string, to io.Writer) error {
-   get, err := http.Get(from)
-   if err != nil {
-      return err
-   }
-   return decryptAudio(sngId, get.Body, to)
 }
 
 func newRead(sngId, from string, to io.Writer) error {

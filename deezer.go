@@ -6,7 +6,6 @@ import (
    "crypto/md5"
    "encoding/json"
    "fmt"
-   "golang.org/x/crypto/blowfish"
    "net/http"
    "net/http/cookiejar"
    "net/url"
@@ -27,43 +26,6 @@ var (
 
 var deezerAPI = url.URL{
    Scheme: "http", Host: "www.deezer.com", Path: "/ajax/gw-light.php",
-}
-
-func decryptAudio(sngId string, from io.Reader, to io.Writer) error {
-   var (
-      bfKey []byte
-      trackHash = md5Hash(sngId)
-   )
-   for n := 0; n < 16; n++ {
-      bfKey = append(bfKey, trackHash[n] ^ trackHash[n + 16] ^ deezerCBC[n])
-   }
-   block, err := blowfish.NewCipher(bfKey)
-   if err != nil {
-      return err
-   }
-   var d int
-   for {
-      size := 2048
-      text := make([]byte, size)
-      n, err := from.Read(text)
-      if err == io.EOF {
-         break
-      } else if err != nil {
-         return err
-      }
-      if n < size {
-         text = text[:n]
-      }
-      if d % 3 == 0 && n == size {
-         cipher.NewCBCDecrypter(block, deezerIv).CryptBlocks(text, text)
-      }
-      _, err = to.Write(text)
-      if err != nil {
-         return err
-      }
-      d++
-   }
-   return nil
 }
 
 func getData(token, sngId string) (deezData, error) {
