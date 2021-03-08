@@ -8,6 +8,12 @@ import (
    "os"
 )
 
+func check(err error) {
+   if err != nil {
+      log.Fatal(err)
+   }
+}
+
 func main() {
    var sngId, token string
    flag.StringVar(&sngId, "id", "", "Deezer Track ID")
@@ -18,31 +24,14 @@ func main() {
       os.Exit(1)
    }
    data, err := getData(token, sngId)
-   if err != nil {
-      log.Fatal(err)
-   }
+   check(err)
    source, err := getSource(sngId, data, deezer320)
-   if err != nil {
-      log.Fatal(err)
-   }
-   create, err := os.Create(
+   check(err)
+   from, err := newReader(sngId, source)
+   check(err)
+   to, err := os.Create(
       fmt.Sprintf("%s - %s.mp3", data.ArtName, data.SngTitle),
    )
-   if err != nil {
-      log.Fatal(err)
-   }
-   defer create.Close()
-   err = newRead(sngId, source, create)
-   if err != nil {
-      log.Fatal(err)
-   }
-}
-
-func newRead(sngId, from string, to io.Writer) error {
-   source, err := newReader(sngId, from)
-   if err != nil {
-      return err
-   }
-   _, err = io.Copy(to, source)
-   return err
+   check(err)
+   io.Copy(to, from)
 }

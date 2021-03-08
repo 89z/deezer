@@ -1,8 +1,13 @@
 # Deezer
 
-Download audio from Deezer
+> Listen, um, I don’t really know what’s going on here, but I’m leaving. I
+> don’t know where exactly, but I’m gonna start over.
+>
+> Come with me. Please.
+>
+> [Paint it Black (2016)](//wikipedia.org/wiki/Paint_It_Black_%282016_film%29)
 
-https://www.deezer.com/us/track/75498415
+Download audio from Deezer
 
 ## API
 
