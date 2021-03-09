@@ -13,13 +13,17 @@
 
 Download audio from Deezer
 
+## Album
+
+http://api.deezer.com/album/7476543
+
 ## Arl
 
-1. Web Developer
-2. Network
-3. Reload
-4. HTML Filter
-5. Right click URL
+1. http://www.deezer.com/login
+2. Web Developer
+3. Network
+4. Log in
+5. Network Settings
 6. Save All As HAR
 
 ## Thanks

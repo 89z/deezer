@@ -38,6 +38,38 @@ func getArl(har string) (string, error) {
    return "", fmt.Errorf("Arl cookie not found")
 }
 
+func getToken(har string) (string, error) {
+   data, err := ioutil.ReadFile(har)
+   if err != nil {
+      return "", err
+   }
+   var archive httpArchive
+   json.Unmarshal(data, &archive)
+   for _, entry := range archive.Log.Entries {
+      for _, query := range entry.Request.QueryString {
+         if query.Name == "api_token" {
+            return query.Value, nil
+         }
+      }
+   }
+   return "", fmt.Errorf("api_token not found")
+}
+
+type httpArchive struct {
+   Log struct {
+      Entries []struct {
+         Request struct {
+            Cookies []struct {
+               Name, Value string
+            }
+            QueryString []struct {
+               Name, Value string
+            }
+         }
+      }
+   }
+}
+
 func main() {
    var format, sngId string
    flag.StringVar(&format, "f", "mp3", "format")
@@ -73,16 +105,4 @@ func main() {
       body,
       os.ModePerm,
    )
-}
-
-type httpArchive struct {
-   Log struct {
-      Entries []struct {
-         Request struct {
-            Cookies []struct {
-               Name, Value string
-            }
-         }
-      }
-   }
 }
