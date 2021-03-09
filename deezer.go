@@ -50,6 +50,10 @@ func Decrypt(sngId string, data []byte) error {
    return nil
 }
 
+func colorGreen(s string) string {
+   return "\x1b[92m" + s + "\x1b[m"
+}
+
 func md5Hash(s string) string {
    b := []byte(s)
    return fmt.Sprintf(
@@ -80,7 +84,7 @@ func NewTrack(sngId, arl string) (Track, error) {
    req.URL.RawQuery = val.Encode()
    req.Header = http.Header{}
    req.Header.Set("Cookie", "arl=" + arl)
-   fmt.Println("GET", req.URL)
+   fmt.Println(colorGreen("Get"), req.URL)
    resp, err := http.DefaultClient.Do(req)
    if err != nil {
       return Track{}, err
@@ -100,7 +104,7 @@ func NewTrack(sngId, arl string) (Track, error) {
    req.Body = io.NopCloser(strings.NewReader(
       fmt.Sprintf(`{"sng_id": "%v"}`, sngId),
    ))
-   fmt.Println(req.Method, req.URL)
+   fmt.Println(colorGreen("Post"), req.URL)
    resp, err = http.DefaultClient.Do(req)
    if err != nil {
       return Track{}, err
@@ -115,7 +119,7 @@ func NewTrack(sngId, arl string) (Track, error) {
    return page.Results.Data, nil
 }
 
-// Given SNG_ID, Results.Data and quality, return audio URL.
+// Given SNG_ID and file format, return audio URL.
 func (t Track) GetSource(sngId string, format rune) (string, error) {
    block, err := aes.NewCipher(keyAES)
    if err != nil {
