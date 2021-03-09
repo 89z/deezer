@@ -91,7 +91,7 @@ func NewTrack(sngId, arl string) (Track, error) {
    }
    defer resp.Body.Close()
    // JSON
-   var check deezCheck
+   var check userData
    err = json.NewDecoder(resp.Body).Decode(&check)
    if err != nil {
       return Track{}, err
@@ -143,18 +143,6 @@ func (t Track) GetSource(sngId string, format rune) (string, error) {
    return source.String(), nil
 }
 
-type deezCheck struct {
-   Results struct {
-      CheckForm string
-   }
-}
-
-type pageTrack struct {
-   Results struct {
-      Data Track
-   }
-}
-
 type ecbEncrypter struct {
    cipher.Block
 }
@@ -178,5 +166,17 @@ func (x ecbEncrypter) CryptBlocks(dst, src []byte) {
    for len(src) > 0 {
       x.Encrypt(dst, src)
       src, dst = src[size:], dst[size:]
+   }
+}
+
+type pageTrack struct {
+   Results struct {
+      Data Track
+   }
+}
+
+type userData struct {
+   Results struct {
+      CheckForm string
    }
 }

@@ -2,6 +2,7 @@
 package main
 
 import (
+   "encoding/json"
    "flag"
    "fmt"
    "github.com/89z/deezer"
@@ -18,19 +19,40 @@ func check(err error) {
    }
 }
 
+func colorGreen(s string) string {
+   return "\x1b[92m" + s + "\x1b[m"
+}
+
+func getArl(har string) (string, error) {
+   data, err := ioutil.ReadFile(har)
+   if err != nil {
+      return "", err
+   }
+   var archive httpArchive
+   json.Unmarshal(data, &archive)
+   for _, each := range archive.Log.Entries[0].Request.Cookies {
+      if each.Name == "arl" {
+         return each.Value, nil
+      }
+   }
+   return "", fmt.Errorf("Arl cookie not found")
+}
+
 func main() {
-   config, err := os.UserConfigDir()
-   check(err)
-   config = filepath.Join(config, "deezer", "deezer.txt")
-   var arl, format, sngId string
+   var format, sngId string
    flag.StringVar(&format, "f", "mp3", "format")
    flag.StringVar(&sngId, "s", "", "SNG_ID")
-   flag.StringVar(&arl, "a", config, "Arl cookie value")
+   har, err := os.UserConfigDir()
+   check(err)
+   har = filepath.Join(har, "deezer.har")
+   flag.StringVar(&har, "h", har, "HTTP archive")
    flag.Parse()
    if sngId == "" {
       flag.PrintDefaults()
       os.Exit(1)
    }
+   arl, err := getArl(har)
+   check(err)
    track, err := deezer.NewTrack(sngId, arl)
    check(err)
    var source string
@@ -40,6 +62,7 @@ func main() {
       source, err = track.GetSource(sngId, deezer.MP3_320)
    }
    check(err)
+   fmt.Println(colorGreen("Get"), source)
    get, err := http.Get(source)
    check(err)
    body, err := ioutil.ReadAll(get.Body)
@@ -50,4 +73,17 @@ func main() {
       body,
       os.ModePerm,
    )
+}
+
+type httpArchive struct {
+   Log struct {
+      Entries []struct {
+         Request struct {
+            Cookies []struct {
+               Name string
+               Value string
+            }
+         }
+      }
+   }
 }
