@@ -80,8 +80,7 @@ type httpArchive struct {
       Entries []struct {
          Request struct {
             Cookies []struct {
-               Name string
-               Value string
+               Name, Value string
             }
          }
       }

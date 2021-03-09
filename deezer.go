@@ -25,9 +25,9 @@ var API = url.URL{
 }
 
 var (
+   iv = []byte{0, 1, 2, 3, 4, 5, 6, 7}
    keyAES = []byte("jo6aey6haid2Teih")
    keyBlowfish = []byte("g4el58wc0zvf9na1")
-   iv = []byte{0, 1, 2, 3, 4, 5, 6, 7}
 )
 
 // Given SNG_ID and byte slice, decrypt byte slice in place.
@@ -91,13 +91,13 @@ func NewTrack(sngId, arl string) (Track, error) {
    }
    defer resp.Body.Close()
    // JSON
-   var check userData
-   err = json.NewDecoder(resp.Body).Decode(&check)
+   var data userData
+   err = json.NewDecoder(resp.Body).Decode(&data)
    if err != nil {
       return Track{}, err
    }
    // POST
-   val.Set("api_token", check.Results.CheckForm)
+   val.Set("api_token", data.Results.CheckForm)
    val.Set("method", "deezer.pageTrack")
    req.URL.RawQuery = val.Encode()
    req.Method = "POST"
