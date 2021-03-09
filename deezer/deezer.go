@@ -30,44 +30,14 @@ func getArl(har string) (string, error) {
    }
    var archive httpArchive
    json.Unmarshal(data, &archive)
-   for _, each := range archive.Log.Entries[0].Request.Cookies {
-      if each.Name == "arl" {
-         return each.Value, nil
+   for _, entry := range archive.Log.Entries {
+      for _, cookie := range entry.Request.Cookies {
+         if cookie.Name == "arl" {
+            return cookie.Value, nil
+         }
       }
    }
    return "", fmt.Errorf("Arl cookie not found")
-}
-
-func getToken(har string) (string, error) {
-   data, err := ioutil.ReadFile(har)
-   if err != nil {
-      return "", err
-   }
-   var archive httpArchive
-   json.Unmarshal(data, &archive)
-   for _, entry := range archive.Log.Entries {
-      for _, query := range entry.Request.QueryString {
-         if query.Name == "api_token" {
-            return query.Value, nil
-         }
-      }
-   }
-   return "", fmt.Errorf("api_token not found")
-}
-
-type httpArchive struct {
-   Log struct {
-      Entries []struct {
-         Request struct {
-            Cookies []struct {
-               Name, Value string
-            }
-            QueryString []struct {
-               Name, Value string
-            }
-         }
-      }
-   }
 }
 
 func main() {
@@ -89,9 +59,9 @@ func main() {
    check(err)
    var source string
    if format == "flac" {
-      source, err = track.GetSource(sngId, deezer.FLAC)
+      source, err = track.Source(sngId, deezer.FLAC)
    } else {
-      source, err = track.GetSource(sngId, deezer.MP3_320)
+      source, err = track.Source(sngId, deezer.MP3_320)
    }
    check(err)
    fmt.Println(colorGreen("Get"), source)
@@ -105,4 +75,16 @@ func main() {
       body,
       os.ModePerm,
    )
+}
+
+type httpArchive struct {
+   Log struct {
+      Entries []struct {
+         Request struct {
+            Cookies []struct {
+               Name, Value string
+            }
+         }
+      }
+   }
 }

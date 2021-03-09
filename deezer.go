@@ -120,7 +120,7 @@ func NewTrack(sngId, arl string) (Track, error) {
 }
 
 // Given SNG_ID and file format, return audio URL.
-func (t Track) GetSource(sngId string, format rune) (string, error) {
+func (t Track) Source(sngId string, format rune) (string, error) {
    block, err := aes.NewCipher(keyAES)
    if err != nil {
       return "", err

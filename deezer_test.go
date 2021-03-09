@@ -17,46 +17,7 @@ func TestArl(t *testing.T) {
    if err != nil {
       t.Error(err)
    }
-   source, err := track.GetSource(sngId, MP3_320)
-   if err != nil {
-      t.Error(err)
-   }
-   get, err := http.Get(source)
-   if err != nil {
-      t.Error(err)
-   }
-   body, err := ioutil.ReadAll(get.Body)
-   if err != nil {
-      t.Error(err)
-   }
-   Decrypt(sngId, body)
-   testHash := md5Hash(string(body))
-   if testHash != "87207d3416377217f835b887c74f4300" {
-      t.Error(testHash)
-   }
-}
-
-type httpArchive struct {
-   Log struct {
-      Entries []struct {
-         Request struct {
-            Cookies []struct {
-               Name, Value string
-            }
-            QueryString []struct {
-               Name, Value string
-            }
-         }
-      }
-   }
-}
-
-func _TestToken(t *testing.T) {
-   track, err := NewTrack(sngId, arl)
-   if err != nil {
-      t.Error(err)
-   }
-   source, err := track.GetSource(sngId, MP3_320)
+   source, err := track.Source(sngId, MP3_320)
    if err != nil {
       t.Error(err)
    }
