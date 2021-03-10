@@ -17,7 +17,13 @@ Download audio from Deezer
 
 http://api.deezer.com/album/7476543
 
-## Arl
+## Thanks
+
+- https://github.com/moon004/Go-deezer-downloader
+- https://pkg.go.dev/github.com/godeezer/lib/deezer
+- https://pkg.go.dev/github.com/joshbarrass/deezerdl/pkg/deezer
+
+## Cookies
 
 1. http://www.deezer.com/login
 2. Web Developer
@@ -25,9 +31,3 @@ http://api.deezer.com/album/7476543
 4. Log in
 5. Network Settings
 6. Save All As HAR
-
-## Thanks
-
-- https://github.com/moon004/Go-deezer-downloader
-- https://pkg.go.dev/github.com/godeezer/lib/deezer
-- https://pkg.go.dev/github.com/joshbarrass/deezerdl/pkg/deezer
