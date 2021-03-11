@@ -50,8 +50,9 @@ func Decrypt(sngId string, data []byte) error {
    return nil
 }
 
-func colorGreen(s string) string {
-   return "\x1b[92m" + s + "\x1b[m"
+func logInfo(s string, a ...interface{}) {
+   fmt.Print("\x1b[30;106m ", s, " \x1b[m ")
+   fmt.Println(a...)
 }
 
 func md5Hash(s string) string {
@@ -84,7 +85,7 @@ func NewTrack(sngId, arl string) (Track, error) {
    req.URL.RawQuery = val.Encode()
    req.Header = http.Header{}
    req.Header.Set("Cookie", "arl=" + arl)
-   fmt.Println(colorGreen("Get"), req.URL)
+   logInfo("Get", req.URL)
    resp, err := http.DefaultClient.Do(req)
    if err != nil {
       return Track{}, err
@@ -104,7 +105,7 @@ func NewTrack(sngId, arl string) (Track, error) {
    req.Body = io.NopCloser(strings.NewReader(
       fmt.Sprintf(`{"sng_id": "%v"}`, sngId),
    ))
-   fmt.Println(colorGreen("Post"), req.URL)
+   logInfo("Post", req.URL)
    resp, err = http.DefaultClient.Do(req)
    if err != nil {
       return Track{}, err

@@ -31,3 +31,7 @@ http://api.deezer.com/album/7476543
 4. Log in
 5. Network Settings
 6. Save All As HAR
+
+This will give you an `arl` cookie that is valid for six months. The program will
+then make a `GET` request with the `arl` cookie, which will return a `sid`
+session cookie.
