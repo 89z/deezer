@@ -19,10 +19,6 @@ func check(err error) {
    }
 }
 
-func colorGreen(s string) string {
-   return "\x1b[92m" + s + "\x1b[m"
-}
-
 func getArl(har string) (string, error) {
    data, err := ioutil.ReadFile(har)
    if err != nil {
@@ -38,6 +34,11 @@ func getArl(har string) (string, error) {
       }
    }
    return "", fmt.Errorf("Arl cookie not found")
+}
+
+func logInfo(s string, a ...interface{}) {
+   fmt.Print("\x1b[30;106m ", s, " \x1b[m ")
+   fmt.Println(a...)
 }
 
 func main() {
@@ -64,7 +65,7 @@ func main() {
       source, err = track.Source(sngId, deezer.MP3_320)
    }
    check(err)
-   fmt.Println(colorGreen("Get"), source)
+   logInfo("Get", source)
    get, err := http.Get(source)
    check(err)
    body, err := ioutil.ReadAll(get.Body)

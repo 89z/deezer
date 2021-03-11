@@ -1,24 +1,23 @@
-# March 11 2021
+# Gateway
+
+Currently I am using this gateway:
+
+http://www.deezer.com/ajax/gw-light.php
+
+This gateway requires an `api_token`. You can get this value from a HAR file,
+one or more of the requests in the file will have it listed in the query string.
+Another gateway is available as well:
+
+https://api.deezer.com/1.0/gateway.php
+
+This gateway requires an `api_key`. Here are two I found online:
 
 ~~~
-deezer gateway api_key
-
-2021-03-11T10:16:22.938-06:00
-
-4h0m0s 2021-03-11 14:16:22.938 -0600 CST
-good
-
-8h0m0s 2021-03-11 18:16:22.938 -0600 CST
-16h0m0s 2021-03-12 02:16:22.938 -0600 CST
-24h0m0s 2021-03-12 10:16:22.938 -0600 CST
+4VCYIJUCDLOUELGD1V8WBVYBNVDYOXEWSLLZDONGBBDFVXTZJRXPR29JRLQFO6ZE
+ZAIVAHCEISOHWAICUQUEXAEPICENGUAFAEZAIPHAELEEVAHPHUCUFONGUAPASUAY
 ~~~
 
-https://github.com/yne/dzr
-
-## ZAIVAHCEISOHWAICUQUEXAEPICENGUAFAEZAIPHAELEEVAHPHUCUFONGUAPASUAY
+The question is, how were these derived? If we cannot answer this, we should
+continue to use the other gateway.
 
 https://github.com/BackInBash/DeezerAPI
-
-## 4VCYIJUCDLOUELGD1V8WBVYBNVDYOXEWSLLZDONGBBDFVXTZJRXPR29JRLQFO6ZE
-
-https://github.com/kmille/deezer-downloader

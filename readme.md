@@ -13,20 +13,6 @@
 
 Download audio from Deezer
 
-## CDN
-
-Note that two CDN are available, but the HTTP one seems to be faster, perhaps
-because HTTPS overhead is not used:
-
-- http://e-cdn-proxy-0.deezer.com
-- https://e-cdns-proxy-0.dzcdn.net
-
-## Thanks
-
-- https://github.com/moon004/Go-deezer-downloader
-- https://pkg.go.dev/github.com/godeezer/lib/deezer
-- https://pkg.go.dev/github.com/joshbarrass/deezerdl/pkg/deezer
-
 ## Cookies
 
 1. http://www.deezer.com/login
