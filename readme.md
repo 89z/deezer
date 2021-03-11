@@ -13,9 +13,13 @@
 
 Download audio from Deezer
 
-## Album
+## CDN
 
-http://api.deezer.com/album/7476543
+Note that two CDN are available, but the HTTP one seems to be faster, perhaps
+because HTTPS overhead is not used:
+
+- http://e-cdn-proxy-0.deezer.com
+- https://e-cdns-proxy-0.dzcdn.net
 
 ## Thanks
 
@@ -31,7 +35,3 @@ http://api.deezer.com/album/7476543
 4. Log in
 5. Network Settings
 6. Save All As HAR
-
-This will give you an `arl` cookie that is valid for six months. The program will
-then make a `GET` request with the `arl` cookie, which will return a `sid`
-session cookie.

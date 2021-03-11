@@ -137,8 +137,8 @@ func (t Track) Source(sngId string, format rune) (string, error) {
    }
    newECBEncrypter(block).CryptBlocks(text, text)
    source := url.URL{
-      Scheme: "https",
-      Host: fmt.Sprintf("e-cdns-proxy-%c.dzcdn.net", t.MD5Origin[0]),
+      Scheme: "http",
+      Host: fmt.Sprintf("e-cdn-proxy-%c.deezer.com", t.MD5Origin[0]),
       Path: fmt.Sprintf("mobile/1/%x", text),
    }
    return source.String(), nil
