@@ -21,8 +21,6 @@ func harDecode(har string) (string, error) {
          }
       }
       if sid != "" {
-         println("StartedDateTime", entry.StartedDateTime)
-         println("sid", sid)
          return sid, nil
       }
    }
@@ -47,6 +45,21 @@ type httpArchive struct {
 
 type userData struct {
    Results struct {
+      CheckForm string
+      User struct {
+         Options struct {
+            LicenseToken string `json:"license_token"`
+         }
+      }
       UserToken string `json:"USER_TOKEN"`
+   }
+}
+
+type listData struct {
+   Results struct {
+      Data []struct {
+         MD5Origin string `json:"MD5_ORIGIN"`
+         TrackToken string `json:"TRACK_TOKEN"`
+      }
    }
 }

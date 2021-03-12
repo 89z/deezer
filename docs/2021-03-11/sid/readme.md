@@ -18,7 +18,7 @@ duration | time                          | result
 2m       | 5:37 PM                       | good
 16m      | 5:54 PM                       | good
 32m      | 6:41 PM                       | good
-1h       |
+1h       | 7:41 PM                       | good
 2h       |
 4h       |
 
