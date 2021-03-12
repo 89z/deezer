@@ -27,3 +27,6 @@ The Deezer app is here:
 https://microsoft.com/p/deezer-music/9nblggh6j7vv
 
 How can I download from the Microsoft Store?
+
+- https://store.rg-adguard.net
+- https://superuser.com/questions/501699
