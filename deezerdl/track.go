@@ -61,11 +61,6 @@ func (track *Track) GetMD5() error {
 		return err
 	}
 	defer resp.Body.Close()
-	if track.api.DebugMode {
-		DumpResponse(resp, "GetMD5")
-	}
-
-	// decode result key into a struct from the body
 	var data struct {
 		Results json.RawMessage `json:"results"`
 	}
@@ -98,11 +93,6 @@ func (api *API) GetSongData(ID int) (*Track, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if api.DebugMode {
-		DumpResponse(resp, "GetSongData")
-	}
-
-	// decode results key
 	var data struct {
 		Results json.RawMessage `json:"results"`
 	}

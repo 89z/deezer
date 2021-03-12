@@ -1,13 +1,11 @@
 package deezer
 
 import (
-	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/cookiejar"
-	"net/url"
-
-	"github.com/sirupsen/logrus"
+   "encoding/json"
+   "io"
+   "net/http"
+   "net/http/cookiejar"
+   "net/url"
 )
 
 const (
@@ -173,7 +171,6 @@ func (api *API) getToken() (string, error) {
 	}
 	defer resp.Body.Close()
 	if api.DebugMode {
-		DumpResponse(resp, "GetToken")
 	}
 
 	// decode result key into a struct from the body
@@ -192,31 +189,17 @@ func (api *API) getToken() (string, error) {
 	}
 
 	if api.DebugMode {
-		logrus.WithFields(logrus.Fields{
-			"token": results.Token,
-		}).Info("got api token")
 	}
 	return results.Token, nil
 }
 
-// GetSession makes a request to the base URL to get any required
-// cookies
 func (api *API) getSession() error {
-	// construct the request
 	req, err := http.NewRequest(http.MethodPost,
 		"https://www.deezer.com",
 		nil)
 	if err != nil {
 		return err
 	}
-
-	// send
-	resp, err := api.client.Do(req)
-	if err != nil {
-		return err
-	}
-	if api.DebugMode {
-		DumpResponse(resp, "GetSession")
-	}
-	return nil
+	_, err = api.client.Do(req)
+      return err
 }

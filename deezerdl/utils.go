@@ -1,31 +1,16 @@
 package deezer
 
 import (
-	"crypto/md5"
-	"fmt"
-	"net/http"
-	"net/http/httputil"
-	"strconv"
-	"strings"
-
-	"github.com/sirupsen/logrus"
+   "crypto/aes"
+   "crypto/md5"
+   "fmt"
+   "strconv"
+   "strings"
 )
 
 var combineChar = []byte("\xa4")
 var deezerKey = []byte("jo6aey6haid2Teih")
 
-// DumpResponse dumps a response with logrus
-func DumpResponse(resp *http.Response, message string) {
-	data, err := httputil.DumpResponse(resp, true)
-	if err != nil {
-		return
-	}
-	logrus.WithFields(logrus.Fields{
-		"response": string(data),
-	}).Info(message)
-}
-
-// MD5Hash hashes the input data and returns it as a string
 func MD5Hash(data []byte) string {
 	hash := md5.Sum(data)
 	return fmt.Sprintf("%x", hash)
@@ -53,4 +38,22 @@ func MakeURLPath(track *Track, format Format) (string, error) {
 	}
 
 	return fmt.Sprintf("%x", ecb), nil
+}
+
+func ECB(key, data []byte) ([]byte, error) {
+	cipher, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	size := cipher.BlockSize()
+	for len(data)%size != 0 {
+		data = append(data, '\x00')
+	}
+
+	encrypted := make([]byte, len(data))
+	for bs, be := 0, size; bs < len(data); bs, be = bs+size, be+size {
+		cipher.Encrypt(encrypted[bs:be], data[bs:be])
+	}
+
+	return encrypted, nil
 }
