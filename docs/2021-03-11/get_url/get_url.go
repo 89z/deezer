@@ -1,13 +1,52 @@
 package main
 
-func main() {
-   
-   
-/*
-https://www.deezer.com/ajax/gw-light.php?method=deezer.getUserData&input=3&api_version=1.0&api_token=" -H "cookie: sid=$2" 
-USR_NFO=$(gw deezer.getUserData $DZR_SID)
-USR_TOK=$(jq -r .results.USER_TOKEN <<< $USR_NFO)
+import (
+   "encoding/json"
+   "fmt"
+   "io/ioutil"
+)
 
-*/   
-   
+func harDecode(har string) (string, error) {
+   data, err := ioutil.ReadFile(har)
+   if err != nil {
+      return "", err
+   }
+   var archive httpArchive
+   json.Unmarshal(data, &archive)
+   for _, entry := range archive.Log.Entries {
+      var sid string
+      for _, cookie := range entry.Request.Cookies {
+         if cookie.Name == "sid" {
+            sid = cookie.Value
+         }
+      }
+      if sid != "" {
+         println("StartedDateTime", entry.StartedDateTime)
+         println("sid", sid)
+         return sid, nil
+      }
+   }
+   return "", fmt.Errorf("sid not found")
+}
+
+type httpArchive struct {
+   Log struct {
+      Entries []struct {
+         Request struct {
+            Cookies []struct {
+               Name, Value string
+            }
+            QueryString []struct {
+               Name, Value string
+            }
+         }
+         StartedDateTime string
+      }
+   }
+}
+
+type userData struct {
+   Results struct {
+      UserToken string `json:"USER_TOKEN"`
+   }
 }
