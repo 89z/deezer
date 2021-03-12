@@ -13,7 +13,7 @@
 
 Download audio from Deezer
 
-## Cookies
+## ARL cookie
 
 1. http://www.deezer.com/login
 2. Web Developer
@@ -21,3 +21,15 @@ Download audio from Deezer
 4. Log in
 5. Network Settings
 6. Save All As HAR
+
+## SID cookie
+
+After some testing, this cookie seems to expire about three hours from last use.
+So if you use it once every three hours, it should stay alive, but I would need
+to do more testing to know for sure.
+
+## Thanks
+
+- https://github.com/moon004/Go-deezer-downloader
+- https://pkg.go.dev/github.com/godeezer/lib/deezer
+- https://pkg.go.dev/github.com/joshbarrass/deezerdl/pkg/deezer
