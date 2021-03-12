@@ -1,4 +1,4 @@
-package deezer
+package main
 
 import (
    "crypto/aes"
@@ -45,11 +45,9 @@ var deezerUrl = url.URL{
 type API struct {
 	APIToken  string
 	client    *http.Client
-	DebugMode bool
 }
 
-// NewAPI creates a new API with a http Client with cookie jar
-func NewAPI(debugMode bool) (*API, error) {
+func NewAPI() (*API, error) {
 	cookieJar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
@@ -59,94 +57,66 @@ func NewAPI(debugMode bool) (*API, error) {
 	}
 	api := API{
 		client:    &client,
-		DebugMode: debugMode,
 	}
 	return &api, nil
 }
 
-// ApiRequest performs an API request
 func (api *API) ApiRequest(method string, body io.Reader) (*http.Response, error) {
-	// add the required parameters to the URL
-	u := apiUrl
-	q := url.Values{
-		"api_version": {"1.0"},
-		"input":       {"3"},
-		"method":      {method},
-	}
-
-	// add the token only if we know the token
-	if method == getTokenMethod {
-		q.Set("api_token", "null")
-	} else {
-		q.Set("api_token", api.APIToken)
-	}
-	u.RawQuery = q.Encode()
-
-	// construct the request
-	req, err := http.NewRequest(http.MethodPost,
-		u.String(),
-		body)
-	if err != nil {
-		return nil, err
-	}
-
-	// change user agent
-	req.Header.Add("User-Agent", "PostmanRuntime/7.21.0")
-
-	// send
-	resp, err := api.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+   u := apiUrl
+   q := url.Values{
+      "api_version": {"1.0"}, "input":       {"3"}, "method":      {method},
+   }
+   if method == getTokenMethod {
+      q.Set("api_token", "null")
+   } else {
+      q.Set("api_token", api.APIToken)
+   }
+   u.RawQuery = q.Encode()
+   req, err := http.NewRequest(
+      http.MethodPost, u.String(), body,
+   )
+   if err != nil {
+      return nil, err
+   }
+   req.Header.Add("User-Agent", "PostmanRuntime/7.21.0")
+   resp, err := api.client.Do(req)
+   if err != nil {
+      return nil, err
+   }
+   return resp, nil
 }
 
-// MobileApiRequest performs a mobile API request
 func (api *API) MobileApiRequest(method string, body io.Reader) (*http.Response, error) {
-	// add the required parameters to the URL
-	u := mobileApiUrl
-	q := url.Values{
-		"api_key": {"4VCYIJUCDLOUELGD1V8WBVYBNVDYOXEWSLLZDONGBBDFVXTZJRXPR29JRLQFO6ZE"},
-		"input":   {"3"},
-		"output":  {"3"},
-		"method":  {method},
-	}
-
-	// get the current sid from the cookie jar
-	var sid string
-	for _, cookie := range api.client.Jar.Cookies(&deezerUrl) {
-		if cookie.Name == "sid" {
-			sid = cookie.Value
-			break
-		}
-	}
-	q.Set("sid", sid)
-
-	u.RawQuery = q.Encode()
-
-	// construct the request
-	req, err := http.NewRequest(http.MethodPost,
-		u.String(),
-		body)
-	if err != nil {
-		return nil, err
-	}
-
-	// change user agent
-	req.Header.Add("User-Agent", "PostmanRuntime/7.21.0")
-
-	// send
-	resp, err := api.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+   u := mobileApiUrl
+   q := url.Values{
+      "api_key": {"4VCYIJUCDLOUELGD1V8WBVYBNVDYOXEWSLLZDONGBBDFVXTZJRXPR29JRLQFO6ZE"},
+      "input":   {"3"},
+      "method":  {method},
+      "output":  {"3"},
+   }
+   var sid string
+   for _, cookie := range api.client.Jar.Cookies(&deezerUrl) {
+      if cookie.Name == "sid" {
+         sid = cookie.Value
+         break
+      }
+   }
+   q.Set("sid", sid)
+   u.RawQuery = q.Encode()
+   req, err := http.NewRequest(
+      http.MethodPost, u.String(), body,
+   )
+   if err != nil {
+      return nil, err
+   }
+   req.Header.Add("User-Agent", "PostmanRuntime/7.21.0")
+   resp, err := api.client.Do(req)
+   if err != nil {
+      return nil, err
+   }
+   return resp, nil
 }
 
-// CookieLogin allows the user to log in using their arl cookie taken
-// from a browser
 func (api *API) CookieLogin(arl string) error {
 	// add the cookie to the jar
 	cookie := http.Cookie{
@@ -172,7 +142,6 @@ func (api *API) CookieLogin(arl string) error {
 	return nil
 }
 
-// GetToken gets the user's API token
 func (api *API) getToken() (string, error) {
 	// make the request
 	resp, err := api.ApiRequest(getTokenMethod, nil)
@@ -180,10 +149,6 @@ func (api *API) getToken() (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	if api.DebugMode {
-	}
-
-	// decode result key into a struct from the body
 	var data struct {
 		Results json.RawMessage `json:"results"`
 	}
@@ -196,9 +161,6 @@ func (api *API) getToken() (string, error) {
 	}
 	if err := json.Unmarshal(data.Results, &results); err != nil {
 		return "", err
-	}
-
-	if api.DebugMode {
 	}
 	return results.Token, nil
 }
