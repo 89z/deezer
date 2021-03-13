@@ -103,7 +103,7 @@ func NewTrack(sngId, arl string) (Track, error) {
    req.URL.RawQuery = val.Encode()
    req.Method = "POST"
    req.Body = io.NopCloser(strings.NewReader(
-      fmt.Sprintf(`{"sng_id": "%v"}`, sngId),
+      fmt.Sprintf(`{"sng_id": %v}`, sngId),
    ))
    logInfo("Post", req.URL)
    resp, err = http.DefaultClient.Do(req)
