@@ -38,6 +38,8 @@ to do more testing to know for sure.
 
 ## Thanks
 
+- https://github.com/Heartran/chimera
 - https://github.com/moon004/Go-deezer-downloader
+- https://github.com/yne/dzr
 - https://pkg.go.dev/github.com/godeezer/lib/deezer
 - https://pkg.go.dev/github.com/joshbarrass/deezerdl/pkg/deezer
