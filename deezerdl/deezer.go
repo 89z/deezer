@@ -67,8 +67,7 @@ func (api *API) MobileApiRequest(method string, body io.Reader) (*http.Response,
       "output":  {"3"},
    }
    var sid string
-   for _, cookie := range api.client.Jar.Cookies(&deezerUrl) {
-      println(cookie.Name)
+   for _, cookie := range api.client.Jar.Cookies(&mobileApiUrl) {
       if cookie.Name == "sid" {
          sid = cookie.Value
          break
@@ -93,7 +92,7 @@ func (api *API) MobileApiRequest(method string, body io.Reader) (*http.Response,
 func (api *API) ApiRequest(method string, body io.Reader) (*http.Response, error) {
    u := apiUrl
    q := url.Values{
-      "api_version": {"1.0"}, "input":       {"3"}, "method":      {method},
+      "api_version": {"1.0"}, "input": {"3"}, "method": {method},
    }
    if method == getTokenMethod {
       q.Set("api_token", "null")
@@ -111,30 +110,16 @@ func (api *API) ApiRequest(method string, body io.Reader) (*http.Response, error
    return api.client.Do(req)
 }
 
-
 func (api *API) CookieLogin(arl string) error {
-	// add the cookie to the jar
-	cookie := http.Cookie{
-		Name:   "arl",
-		Value:  arl,
-		Domain: ".deezer.com",
-		Path:   "/",
-	}
-	api.client.Jar.SetCookies(&deezerUrl, []*http.Cookie{&cookie})
-
-	// get a session
-	err := api.getSession()
-	if err != nil {
-		return err
-	}
-
-	// try to get the token
-	api.APIToken, err = api.getToken()
-	if err != nil {
-		return err
-	}
-
-	return nil
+   api.client.Jar.SetCookies(&deezerUrl, []*http.Cookie{
+      {Domain: ".deezer.com", Name: "arl", Path: "/", Value: arl},
+   })
+   err := api.getSession()
+   if err != nil {
+      return err
+   }
+   api.APIToken, err = api.getToken()
+   return err
 }
 
 func (api *API) getToken() (string, error) {
@@ -170,86 +155,66 @@ const (
 )
 
 func decryptBlowfish(key, data []byte) ([]byte, error) {
-	block, err := blowfish.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	mode := cipher.NewCBCDecrypter(block, []byte(blowfishIV))
-
-	decrypted := make([]byte, len(data))
-	mode.CryptBlocks(decrypted, data)
-
-	return decrypted, nil
+   block, err := blowfish.NewCipher(key)
+   if err != nil {
+      return nil, err
+   }
+   mode := cipher.NewCBCDecrypter(block, []byte(blowfishIV))
+   decrypted := make([]byte, len(data))
+   mode.CryptBlocks(decrypted, data)
+   return decrypted, nil
 }
 
-// getBlowfishKey calculates the key required to decrypt the
-// blowfish-encrypted file
 func (track *Track) GetBlowfishKey() []byte {
-	hash := MD5Hash([]byte(fmt.Sprintf("%d", track.ID)))
-	key := []byte(blowfishKey)
-
-	output := make([]byte, 16)
-	for i := 0; i < 16; i++ {
-		output[i] = hash[i] ^ hash[i+16] ^ key[i]
-	}
-	return output
+   hash := MD5Hash([]byte(fmt.Sprintf("%d", track.ID)))
+   key := []byte(blowfishKey)
+   output := make([]byte, 16)
+   for i := 0; i < 16; i++ {
+      output[i] = hash[i] ^ hash[i+16] ^ key[i]
+   }
+   return output
 }
 
-// DecryptSongFile decrypts the encrypted chunks of a song downloaded
-// from deezer
 func DecryptSongFile(key []byte, inputPath, outputPath string) error {
-	// open files
-	inFile, err := os.Open(inputPath)
-	if err != nil {
-		return err
-	}
-	defer inFile.Close()
-	outFile, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer outFile.Close()
-
-	buf := make([]byte, fileChunkSize)
-	n, err := inFile.Read(buf)
-	if err != nil && err != io.EOF {
-		return err
-	}
-
-	for chunk := 0; n > 0; chunk++ {
-		// only decrypt every third chunk (including first
-		// chunk)
-		encrypted := (chunk%3 == 0)
-
-		// only decrypt if encrypted and whole chunk
-		if encrypted && n == fileChunkSize {
-			buf, err = decryptBlowfish(key, buf)
-			if err != nil {
-				return err
-			}
-		}
-
-		// write the chunk back
-		n, err = outFile.Write(buf)
-		if err != nil {
-			return err
-		}
-
-		// read next chunk
-		n, err = inFile.Read(buf)
-		if err != nil && err != io.EOF {
-			return err
-		}
-	}
-
-	return nil
+   inFile, err := os.Open(inputPath)
+   if err != nil {
+      return err
+   }
+   defer inFile.Close()
+   outFile, err := os.Create(outputPath)
+   if err != nil {
+      return err
+   }
+   defer outFile.Close()
+   buf := make([]byte, fileChunkSize)
+   n, err := inFile.Read(buf)
+   if err != nil && err != io.EOF {
+      return err
+   }
+   for chunk := 0; n > 0; chunk++ {
+      encrypted := (chunk%3 == 0)
+      if encrypted && n == fileChunkSize {
+         buf, err = decryptBlowfish(key, buf)
+         if err != nil {
+            return err
+         }
+      }
+      n, err = outFile.Write(buf)
+      if err != nil {
+         return err
+      }
+      n, err = inFile.Read(buf)
+      if err != nil && err != io.EOF {
+         return err
+      }
+   }
+   return nil
 }
 
-
-
-var combineChar = []byte("\xa4")
-var deezerKey = []byte("jo6aey6haid2Teih")
+var (
+   combineChar = []byte("\xa4")
+   deezerKey = []byte("jo6aey6haid2Teih")
+)
 
 func MD5Hash(data []byte) string {
 	hash := md5.Sum(data)
@@ -488,7 +453,6 @@ func (track *Track) GetMD5() error {
    if err != nil {
       return err
    }
-   fmt.Printf("%s\n", body)
    var data struct{Results json.RawMessage `json:"results"`}
    json.Unmarshal(body, &data)
    var results struct {MD5 string `json:"MD5_ORIGIN"`}

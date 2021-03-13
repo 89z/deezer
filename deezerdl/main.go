@@ -22,17 +22,10 @@ func main() {
    if e != nil {
       log.Fatal(e)
    }
-   e = track.GetMD5()
-   if e != nil {
-      log.Fatal(e)
-   }
    fmt.Printf("%+v\n", track)
    /*
-   download, e := track.GetDownloadURL(MP3_256)
-   if e != nil {
-      log.Fatal(e)
-   }
-   fmt.Printf("%+v\n", download)
+   download, e := track.GetDownloadURL(MP3_320)
+   e = track.GetMD5()
    MobileApiRequest
    */
 }
