@@ -9,6 +9,7 @@ import (
    "fmt"
    "golang.org/x/crypto/blowfish"
    "io"
+   "io/ioutil"
    "net/http"
    "net/http/cookiejar"
    "net/url"
@@ -67,6 +68,7 @@ func (api *API) MobileApiRequest(method string, body io.Reader) (*http.Response,
    }
    var sid string
    for _, cookie := range api.client.Jar.Cookies(&deezerUrl) {
+      println(cookie.Name)
       if cookie.Name == "sid" {
          sid = cookie.Value
          break
@@ -106,11 +108,7 @@ func (api *API) ApiRequest(method string, body io.Reader) (*http.Response, error
       return nil, err
    }
    req.Header.Add("User-Agent", "PostmanRuntime/7.21.0")
-   resp, err := api.client.Do(req)
-   if err != nil {
-      return nil, err
-   }
-   return resp, nil
+   return api.client.Do(req)
 }
 
 
@@ -140,47 +138,37 @@ func (api *API) CookieLogin(arl string) error {
 }
 
 func (api *API) getToken() (string, error) {
-	// make the request
-	resp, err := api.ApiRequest(getTokenMethod, nil)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	var data struct {
-		Results json.RawMessage `json:"results"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil { // uses the body directly
-		return "", err
-	}
-	// and then the checkForm key (the token)
-	var results struct {
-		Token string `json:"checkForm"`
-	}
-	if err := json.Unmarshal(data.Results, &results); err != nil {
-		return "", err
-	}
-	return results.Token, nil
+   resp, err := api.ApiRequest(getTokenMethod, nil)
+   if err != nil {
+      return "", err
+   }
+   defer resp.Body.Close()
+   var data struct{Results json.RawMessage `json:"results"`}
+   if err := json.NewDecoder(resp.Body).Decode(&data); err != nil { // uses the body directly
+   return "", err
+   }
+   var results struct{Token string `json:"checkForm"`}
+   if err := json.Unmarshal(data.Results, &results); err != nil {
+      return "", err
+   }
+   return results.Token, nil
 }
 
 func (api *API) getSession() error {
-	req, err := http.NewRequest(http.MethodPost,
-		"https://www.deezer.com",
-		nil)
-	if err != nil {
-		return err
-	}
-	_, err = api.client.Do(req)
+   req, err := http.NewRequest(http.MethodPost, "https://www.deezer.com", nil)
+   if err != nil {
       return err
+   }
+   _, err = api.client.Do(req)
+   return err
 }
 
+const (
+   blowfishKey = "g4el58wc0zvf9na1"
+   blowfishIV = "\x00\x01\x02\x03\x04\x05\x06\x07"
+   fileChunkSize = 2048
+)
 
-
-const blowfishKey = "g4el58wc0zvf9na1"
-const blowfishIV = "\x00\x01\x02\x03\x04\x05\x06\x07"
-
-const fileChunkSize = 2048
-
-// decryptBlowfish decrypts blowfish data
 func decryptBlowfish(key, data []byte) ([]byte, error) {
 	block, err := blowfish.NewCipher(key)
 	if err != nil {
@@ -488,16 +476,21 @@ func (track *Track) GetDownloadURL(format Format) (*url.URL, error) {
 }
 
 func (track *Track) GetMD5() error {
-   resp, err := track.api.MobileApiRequest(getSongMobileMethod,
-   strings.NewReader(fmt.Sprintf(`{"SNG_ID":%d}`, track.ID)))
+   resp, err := track.api.MobileApiRequest(
+      getSongMobileMethod,
+      strings.NewReader(fmt.Sprintf(`{"SNG_ID":%d}`, track.ID)),
+   )
    if err != nil {
       return err
    }
    defer resp.Body.Close()
-   var data struct{Results json.RawMessage `json:"results"`}
-   if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+   body, err := ioutil.ReadAll(resp.Body)
+   if err != nil {
       return err
    }
+   fmt.Printf("%s\n", body)
+   var data struct{Results json.RawMessage `json:"results"`}
+   json.Unmarshal(body, &data)
    var results struct {MD5 string `json:"MD5_ORIGIN"`}
    if err := json.Unmarshal(data.Results, &results); err != nil {
       return err
@@ -509,7 +502,6 @@ func (track *Track) GetMD5() error {
    return nil
 }
 
-// GetSongData gets a track
 func (api *API) GetSongData(ID int) (*Track, error) {
 	// make the request
 	body := strings.NewReader(fmt.Sprintf(`{"SNG_ID":%d}`, ID))
