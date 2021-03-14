@@ -10,10 +10,8 @@ import (
 const gateway = "http://www.deezer.com/ajax/gw-light.php"
 
 type pageTrack struct {
-   body struct {
-      Results struct {
-         Data struct { MD5_Origin string }
-      }
+   Results struct {
+      Data struct { MD5_Origin string }
    }
 }
 
@@ -38,14 +36,12 @@ func newPageTrack(sngId, apiToken, sid string) (pageTrack, error) {
       return pageTrack{}, err
    }
    var track pageTrack
-   json.NewDecoder(res.Body).Decode(&track.body)
+   json.NewDecoder(res.Body).Decode(&track)
    return track, nil
 }
 
 type ping struct {
-   body struct {
-      Results struct { Session string }
-   }
+   Results struct { Session string }
 }
 
 func newPing() (ping, error) {
@@ -63,12 +59,12 @@ func newPing() (ping, error) {
       return ping{}, err
    }
    var p ping
-   json.NewDecoder(res.Body).Decode(&p.body)
+   json.NewDecoder(res.Body).Decode(&p)
    return p, nil
 }
 
 type userData struct {
-   head []*http.Cookie
+   sid string
    body struct {
       Results struct {
          CheckForm string
@@ -98,7 +94,9 @@ func newUserData(name, value string) (userData, error) {
       return userData{}, err
    }
    var data userData
-   data.head = res.Cookies()
+   for _, each := range res.Cookies() {
+      if each.Name == "sid" { data.sid = each.Value }
+   }
    json.NewDecoder(res.Body).Decode(&data.body)
    return data, nil
 }
