@@ -1,12 +1,46 @@
 package deezer
 
 import (
+   "bytes"
    "encoding/json"
    "net/http"
    "net/url"
 )
 
 const gateway = "http://www.deezer.com/ajax/gw-light.php"
+
+type pageTrack struct {
+   body struct {
+      Results struct {
+         Data struct { MD5_Origin string }
+      }
+   }
+}
+
+func newPageTrack(sngId, apiToken, sid string) (pageTrack, error) {
+   in, out := struct{SNG_ID string}{sngId}, new(bytes.Buffer)
+   json.NewEncoder(out).Encode(in)
+   req, err := http.NewRequest("POST", gateway, out)
+   if err != nil {
+      return pageTrack{}, err
+   }
+   val := url.Values{
+      "api_token": {apiToken},
+      "api_version": {"1.0"},
+      "method": {"deezer.pageTrack"},
+   }
+   req.URL.RawQuery = val.Encode()
+   cookie := http.Cookie{Name: "sid", Value: sid}
+   req.AddCookie(&cookie)
+   var client http.Client
+   res, err := client.Do(req)
+   if err != nil {
+      return pageTrack{}, err
+   }
+   var track pageTrack
+   json.NewDecoder(res.Body).Decode(&track.body)
+   return track, nil
+}
 
 type ping struct {
    body struct {
