@@ -86,19 +86,23 @@ func NewTrack(sngId, arl string) (Track, error) {
    req.Header = http.Header{}
    req.Header.Set("Cookie", "arl=" + arl)
    logInfo("Get", req.URL)
-   resp, err := http.DefaultClient.Do(req)
+   res, err := http.DefaultClient.Do(req)
    if err != nil {
       return Track{}, err
    }
-   defer resp.Body.Close()
+   defer res.Body.Close()
    // JSON
-   var data userData
-   err = json.NewDecoder(resp.Body).Decode(&data)
+   var userData struct {
+      Results struct {
+         CheckForm string
+      }
+   }
+   err = json.NewDecoder(res.Body).Decode(&userData)
    if err != nil {
       return Track{}, err
    }
    // POST
-   val.Set("api_token", data.Results.CheckForm)
+   val.Set("api_token", userData.Results.CheckForm)
    val.Set("method", "deezer.pageTrack")
    req.URL.RawQuery = val.Encode()
    req.Method = "POST"
@@ -106,14 +110,14 @@ func NewTrack(sngId, arl string) (Track, error) {
       fmt.Sprintf(`{"sng_id": %v}`, sngId),
    ))
    logInfo("Post", req.URL)
-   resp, err = http.DefaultClient.Do(req)
+   res, err = http.DefaultClient.Do(req)
    if err != nil {
       return Track{}, err
    }
-   defer resp.Body.Close()
+   defer res.Body.Close()
    // JSON
    var page pageTrack
-   err = json.NewDecoder(resp.Body).Decode(&page)
+   err = json.NewDecoder(res.Body).Decode(&page)
    if err != nil {
       return Track{}, err
    }
@@ -173,11 +177,5 @@ func (x ecbEncrypter) CryptBlocks(dst, src []byte) {
 type pageTrack struct {
    Results struct {
       Data Track
-   }
-}
-
-type userData struct {
-   Results struct {
-      CheckForm string
    }
 }
