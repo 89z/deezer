@@ -24,4 +24,13 @@ we need `session` value. To get `session` value, we make request to:
 http://www.deezer.com/ajax/gw-light.php?method=deezer.ping&api_version=1.0&api_token
 ~~~
 
-Can I use this `session` value with the old process?
+Can I use this `session` value with the old process? No. Here is a list of all
+the Deezer methods:
+
+~~~
+deezer.getUserData
+deezer.pageTrack
+deezer.ping
+song.getData
+song.getListData
+~~~
