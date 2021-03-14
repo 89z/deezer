@@ -11,4 +11,5 @@ API_TOK=$(jq -r .results.checkForm <<< $USR_NFO)
 TRK_NFO=$(gw song.getListData $DZR_SID $API_TOK --data-binary '{"sng_ids":['"$TRK_IDS"']}')
 TRK_TOK=$(jq -r .results.data[].TRACK_TOKEN <<< "$TRK_NFO")
 
-curl 'https://media.deezer.com/v1/get_url' --data-binary '{"license_token":"'$USR_LIC'","media":[{"type":"FULL","formats":[{"cipher":"BF_CBC_STRIPE","format":"MP3_128"}]}],"track_tokens":["'$TRK_TOK'"]}'
+curl 'https://media.deezer.com/v1/get_url' --data-binary \
+'{"license_token":"'$USR_LIC'","media":[{"type":"FULL","formats":[{"cipher":"BF_CBC_STRIPE","format":"MP3_128"}]}],"track_tokens":["'$TRK_TOK'"]}'
