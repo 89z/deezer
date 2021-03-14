@@ -8,7 +8,11 @@ import (
 
 const gateway = "http://www.deezer.com/ajax/gw-light.php"
 
-type ping struct { *http.Response }
+type ping struct {
+   body struct {
+      Results struct { Session string }
+   }
+}
 
 func newPing() (ping, error) {
    req, err := http.NewRequest("GET", gateway, nil)
@@ -21,18 +25,25 @@ func newPing() (ping, error) {
    req.URL.RawQuery = val.Encode()
    var client http.Client
    res, err := client.Do(req)
-   return ping{res}, err
-}
-
-func (p ping) session() string {
-   var body struct {
-      Results struct { Session string }
+   if err != nil {
+      return ping{}, err
    }
-   json.NewDecoder(p.Body).Decode(&body)
-   return body.Results.Session
+   var p ping
+   json.NewDecoder(res.Body).Decode(&p.body)
+   return p, nil
 }
 
-type userData struct { *http.Response }
+type userData struct {
+   head []*http.Cookie
+   body struct {
+      Results struct {
+         CheckForm string
+         User struct {
+            Options struct { License_Token string }
+         }
+      }
+   }
+}
 
 func newUserData(name, value string) (userData, error) {
    req, err := http.NewRequest("GET", gateway, nil)
@@ -49,24 +60,11 @@ func newUserData(name, value string) (userData, error) {
    req.AddCookie(&cookie)
    var client http.Client
    res, err := client.Do(req)
-   return userData{res}, err
-}
-
-func (d userData) sid() string {
-   for _, each := range d.Cookies() {
-      if each.Name == "sid" { return each.Value }
+   if err != nil {
+      return userData{}, err
    }
-   return ""
-}
-
-func (d userData) token() string {
-   var body struct {
-      Results struct {
-         User struct {
-            Options struct { License_Token string }
-         }
-      }
-   }
-   json.NewDecoder(d.Body).Decode(&body)
-   return body.Results.User.Options.License_Token
+   var data userData
+   data.head = res.Cookies()
+   json.NewDecoder(res.Body).Decode(&data.body)
+   return data, nil
 }
