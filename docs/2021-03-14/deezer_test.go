@@ -3,19 +3,38 @@ import "testing"
 
 const (
    apiToken = "4VCYIJUCDLOUELGD1V8WBVYBNVDYOXEWSLLZDONGBBDFVXTZJRXPR29JRLQFO6ZE"
-   sngId = "75498418"
+   felix = 75498418
+   maria = 75498415
 )
 
 const arl = "0e21c80ef0b963e68cf5d0a951fc918def86c2188a44b33ab353088f15d7b4" +
 "087ed699e6dcd6293514f49439a7d2a7c86bdbcb6e0efae1acd029ec4f267a07b541bfe13872" +
 "c5e5715db846bc784701c3794c328411b5cca332d695b37c1946c1"
 
+func TestSongList(t *testing.T) {
+   ping, err := newPingRes()
+   if err != nil {
+      t.Error(err)
+   }
+   user, err := newUserRes("sid", ping.Results.Session)
+   if err != nil {
+      t.Error(err)
+   }
+   list, err := newSongListRes(user.Results.CheckForm, user.sid, felix, maria)
+   if err != nil {
+      t.Error(err)
+   }
+   if list.Results.Data[0].Track_Token == "" {
+      t.Error(err)
+   }
+}
+
 func TestSong(t *testing.T) {
    ping, err := newPingRes()
    if err != nil {
       t.Error(err)
    }
-   song, err := newSongRes(apiToken, ping.Results.Session, sngId)
+   song, err := newSongRes(apiToken, ping.Results.Session, felix)
    if err != nil {
       t.Error(err)
    }
@@ -29,7 +48,7 @@ func TestTrack(t *testing.T) {
    if err != nil {
       t.Error(err)
    }
-   track, err := newTrackRes(sngId, user.Results.CheckForm, user.sid)
+   track, err := newTrackRes(user.Results.CheckForm, user.sid, felix)
    if err != nil {
       t.Error(err)
    }
