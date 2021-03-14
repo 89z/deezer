@@ -15,7 +15,7 @@ func TestSong(t *testing.T) {
    if err != nil {
       t.Error(err)
    }
-   song, err := newSongRes(sngId, apiToken, ping.Results.Session)
+   song, err := newSongRes(apiToken, ping.Results.Session, sngId)
    if err != nil {
       t.Error(err)
    }

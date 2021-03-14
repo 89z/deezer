@@ -5,43 +5,13 @@ import (
    "encoding/json"
    "net/http"
    "net/url"
+   "os"
 )
 
 const (
    gatewayAPI = "http://api.deezer.com/1.0/gateway.php"
    gatewayWWW = "http://www.deezer.com/ajax/gw-light.php"
 )
-
-type trackRes struct {
-   Results struct {
-      Data struct { MD5_Origin string }
-   }
-}
-
-func newTrackRes(sngId, apiToken, sid string) (trackRes, error) {
-   in, out := struct{SNG_ID string}{sngId}, new(bytes.Buffer)
-   json.NewEncoder(out).Encode(in)
-   req, err := http.NewRequest("POST", gatewayWWW, out)
-   if err != nil {
-      return trackRes{}, err
-   }
-   val := url.Values{
-      "api_token": {apiToken},
-      "api_version": {"1.0"},
-      "method": {"deezer.pageTrack"},
-   }
-   req.URL.RawQuery = val.Encode()
-   cookie := http.Cookie{Name: "sid", Value: sid}
-   req.AddCookie(&cookie)
-   var client http.Client
-   res, err := client.Do(req)
-   if err != nil {
-      return trackRes{}, err
-   }
-   var track trackRes
-   json.NewDecoder(res.Body).Decode(&track)
-   return track, nil
-}
 
 type pingRes struct {
    Results struct { Session string }
@@ -66,12 +36,43 @@ func newPingRes() (pingRes, error) {
    return ping, nil
 }
 
+type songListReq struct {
+   Sng_Ids []string
+}
+
+type songReq struct {
+   Sng_Id string
+}
+
 type songRes struct {
    Results struct { Track_Token string }
 }
 
-func newSongRes(sngId, apiToken, sid string) (songRes, error) {
-   in, out := struct{SNG_ID string}{sngId}, new(bytes.Buffer)
+func newSongListRes(apiToken, sid string, sngIds ...string) error {
+   in, out := songListReq{sngIds}, new(bytes.Buffer)
+   json.NewEncoder(out).Encode(in)
+   req, err := http.NewRequest("POST", gatewayWWW, out)
+   if err != nil {
+      return err
+   }
+   val := url.Values{
+      "api_token": {apiToken},
+      "api_version": {"1.0"},
+      "input": {"3"},
+      "method": {"song.getListData"},
+   }
+   req.URL.RawQuery = val.Encode()
+   var client http.Client
+   res, err := client.Do(req)
+   if err != nil {
+      return err
+   }
+   os.Stdout.ReadFrom(res.Body)
+   return nil
+}
+
+func newSongRes(apiToken, sid, sngId string) (songRes, error) {
+   in, out := songReq{sngId}, new(bytes.Buffer)
    json.NewEncoder(out).Encode(in)
    req, err := http.NewRequest("POST", gatewayAPI, out)
    if err != nil {
@@ -92,6 +93,46 @@ func newSongRes(sngId, apiToken, sid string) (songRes, error) {
    var song songRes
    json.NewDecoder(res.Body).Decode(&song)
    return song, nil
+}
+
+type trackRes struct {
+   Results struct {
+      Data struct { MD5_Origin string }
+   }
+}
+
+func newTrackRes(apiToken, sid, sngId string) (trackRes, error) {
+   in, out := songReq{sngId}, new(bytes.Buffer)
+   json.NewEncoder(out).Encode(in)
+   req, err := http.NewRequest("POST", gatewayWWW, out)
+   if err != nil {
+      return trackRes{}, err
+   }
+   val := url.Values{
+      "api_token": {apiToken},
+      "api_version": {"1.0"},
+      "method": {"deezer.pageTrack"},
+   }
+   req.URL.RawQuery = val.Encode()
+   cookie := http.Cookie{Name: "sid", Value: sid}
+   req.AddCookie(&cookie)
+   var client http.Client
+   res, err := client.Do(req)
+   if err != nil {
+      return trackRes{}, err
+   }
+   var track trackRes
+   json.NewDecoder(res.Body).Decode(&track)
+   return track, nil
+}
+
+type urlReq struct {
+   License_Token string
+   Media []struct {
+      Type string
+      Formats []struct { Cipher, Format string }
+   }
+   Track_Tokens []string
 }
 
 type userRes struct {
