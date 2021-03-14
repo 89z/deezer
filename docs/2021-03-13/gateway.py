@@ -13,7 +13,7 @@ res = session.get(PRIVATE_API_URL + parse.urlencode(args))
 PUBLIC_API_URL = 'https://api.deezer.com/1.0/gateway.php?'
 args = {
    'api_key': os.environ['DZR_API'],
-   'method': 'song_getData',
+   'method': 'song.getData',
    'input': '3',
    'output': '3',
    'sid': res.json()['results']['SESSION']
