@@ -40,6 +40,8 @@ to do more testing to know for sure.
 
 - https://github.com/Heartran/chimera
 - https://github.com/moon004/Go-deezer-downloader
+- https://github.com/staniel359/muffon-api
+- https://github.com/svbnet/diezel
 - https://github.com/yne/dzr
 - https://pkg.go.dev/github.com/godeezer/lib/deezer
 - https://pkg.go.dev/github.com/joshbarrass/deezerdl/pkg/deezer

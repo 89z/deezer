@@ -9,6 +9,7 @@ import (
 
 const (
    gatewayAPI = "http://api.deezer.com/1.0/gateway.php"
+   gatewayMedia = "https://media.deezer.com/v1/get_url"
    gatewayWWW = "https://www.deezer.com/ajax/gw-light.php"
 )
 
@@ -109,6 +110,15 @@ type trackRes struct {
    }
 }
 
+type urlReq struct {
+   License_Token string
+   Track_Tokens []string
+   Media []struct {
+      Type string
+      Formats []struct { Cipher, Format string }
+   }
+}
+
 func newTrackRes(apiToken, sid string, sngId int) (trackRes, error) {
    in, out := songReq{sngId}, new(bytes.Buffer)
    json.NewEncoder(out).Encode(in)
@@ -132,15 +142,6 @@ func newTrackRes(apiToken, sid string, sngId int) (trackRes, error) {
    var track trackRes
    json.NewDecoder(res.Body).Decode(&track)
    return track, nil
-}
-
-type urlReq struct {
-   License_Token string
-   Media []struct {
-      Type string
-      Formats []struct { Cipher, Format string }
-   }
-   Track_Tokens []string
 }
 
 type userRes struct {
