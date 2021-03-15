@@ -14,13 +14,6 @@ const arl = "0e21c80ef0b963e68cf5d0a951fc918def86c2188a44b33ab353088f15d7b4" +
 
 const apiKey = "4VCYIJUCDLOUELGD1V8WBVYBNVDYOXEWSLLZDONGBBDFVXTZJRXPR29JRLQFO6ZE"
 
-func _TestGateway(t *testing.T) {
-   err := gateway(sngId, apiKey)
-   if err != nil {
-      t.Error(err)
-   }
-}
-
 func TestArl(t *testing.T) {
    track, err := NewTrack(sngId, arl)
    if err != nil {

@@ -1,6 +1,24 @@
 # March 15 2021
 
-This works:
+## Fail
+
+~~~
+deezer.ping -> deezer.getUserData -> song.getData -> get_url
+                     |                                  ^
+                     |__________________________________|
+~~~
+
+## Pass cookie
+
+~~~
+deezer.getUserData -> deezer.pageTrack
+~~~
+
+~~~
+deezer.getUserData -> song.getData
+~~~
+
+## Pass no cookie
 
 ~~~
 deezer.ping -> deezer.getUserData -> song.getListData -> get_url
@@ -8,14 +26,5 @@ deezer.ping -> deezer.getUserData -> song.getListData -> get_url
                      |______________________________________|
 ~~~
 
-This does not work:
-
-~~~
-deezer.ping -> deezer.getUserData -> song.getData -> get_url
-                     |                                      ^
-                     |______________________________________|
-~~~
-
-So what is `song.getData` used for?
-
-https://github.com/deknowny/async-deethon/issues/1
+- https://github.com/aeggydev/deezer-tool/issues/1
+- https://github.com/deknowny/async-deethon/issues/1
