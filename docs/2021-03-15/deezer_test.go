@@ -12,24 +12,47 @@ const arl = "0e21c80ef0b963e68cf5d0a951fc918def86c2188a44b33ab353088f15d7b4" +
 "c5e5715db846bc784701c3794c328411b5cca332d695b37c1946c1"
 
 func TestGetUrl(t *testing.T) {
-}
-
-func TestPing(t *testing.T) {
-   ping, err := newPing()
+   p, err := newPing()
    if err != nil {
       t.Error(err)
    }
-   if ping.Results.Session == "" {
+   user, err := newUser("sid", p.Results.Session)
+   if err != nil {
+      t.Error(err)
+   }
+   list, err := newSongList(user.Results.CheckForm, user.sid, felix, maria)
+   if err != nil {
+      t.Error(err)
+   }
+   get, err := newGetUrl(
+      user.Results.User.Options.License_Token,
+      list.Results.Data[0].Track_Token,
+      list.Results.Data[1].Track_Token,
+   )
+   if err != nil {
+      t.Error(err)
+   }
+   if get.Data[0].Media[0].Sources[0].Url == "" {
+      t.Error()
+   }
+}
+
+func TestPing(t *testing.T) {
+   p, err := newPing()
+   if err != nil {
+      t.Error(err)
+   }
+   if p.Results.Session == "" {
       t.Error()
    }
 }
 
 func TestSong(t *testing.T) {
-   ping, err := newPing()
+   p, err := newPing()
    if err != nil {
       t.Error(err)
    }
-   song, err := newSong(apiToken, ping.Results.Session, felix)
+   song, err := newSong(apiToken, p.Results.Session, felix)
    if err != nil {
       t.Error(err)
    }
@@ -39,11 +62,11 @@ func TestSong(t *testing.T) {
 }
 
 func TestSongList(t *testing.T) {
-   ping, err := newPing()
+   p, err := newPing()
    if err != nil {
       t.Error(err)
    }
-   user, err := newUser("sid", ping.Results.Session)
+   user, err := newUser("sid", p.Results.Session)
    if err != nil {
       t.Error(err)
    }
@@ -87,11 +110,11 @@ func TestUserArl(t *testing.T) {
 }
 
 func TestUserSid(t *testing.T) {
-   ping, err := newPing()
+   p, err := newPing()
    if err != nil {
       t.Error(err)
    }
-   user, err := newUser("sid", ping.Results.Session)
+   user, err := newUser("sid", p.Results.Session)
    if err != nil {
       t.Error(err)
    }
