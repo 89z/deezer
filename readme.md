@@ -36,12 +36,14 @@ After some testing, this cookie seems to expire about three hours from last use.
 So if you use it once every three hours, it should stay alive, but I would need
 to do more testing to know for sure.
 
-## Thanks
+## Repos
 
-- https://github.com/Heartran/chimera
-- https://github.com/moon004/Go-deezer-downloader
-- https://github.com/staniel359/muffon-api
-- https://github.com/svbnet/diezel
-- https://github.com/yne/dzr
-- https://pkg.go.dev/github.com/godeezer/lib/deezer
-- https://pkg.go.dev/github.com/joshbarrass/deezerdl/pkg/deezer
+language   | link
+-----------|-----
+C          | https://github.com/yne/dzr
+Go         | https://github.com/godeezer/lib
+Go         | https://github.com/joshbarrass/deezerdl
+Go         | https://github.com/moon004/Go-deezer-downloader
+JavaScript | https://github.com/svbnet/diezel
+Python     | https://github.com/Heartran/chimera
+Ruby       | https://github.com/staniel359/muffon-api
