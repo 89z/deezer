@@ -13,14 +13,14 @@ const (
    gatewayWWW = "https://www.deezer.com/ajax/gw-light.php"
 )
 
-type pingRes struct {
+type ping struct {
    Results struct { Session string }
 }
 
-func newPingRes() (pingRes, error) {
+func newPing() (ping, error) {
    req, err := http.NewRequest("GET", gatewayWWW, nil)
    if err != nil {
-      return pingRes{}, err
+      return ping{}, err
    }
    val := url.Values{
       "api_token": {""}, "api_version": {"1.0"}, "method": {"deezer.ping"},
@@ -29,29 +29,53 @@ func newPingRes() (pingRes, error) {
    var client http.Client
    res, err := client.Do(req)
    if err != nil {
-      return pingRes{}, err
+      return ping{}, err
    }
-   var ping pingRes
-   json.NewDecoder(res.Body).Decode(&ping)
-   return ping, nil
+   var data ping
+   json.NewDecoder(res.Body).Decode(&data)
+   return data, nil
 }
 
-type songListReq struct {
-   Sng_Ids []int
+type song struct {
+   Results struct { Track_Token string }
 }
 
-type songListRes struct {
+func newSong(apiToken, sid string, sngId int) (song, error) {
+   in, out := map[string]int{"SNG_ID": sngId}, new(bytes.Buffer)
+   json.NewEncoder(out).Encode(in)
+   req, err := http.NewRequest("POST", gatewayAPI, out)
+   if err != nil {
+      return song{}, err
+   }
+   val := url.Values{
+      "api_key": {apiToken},
+      "method": {"song.getData"},
+      "output": {"3"},
+      "sid": {sid},
+   }
+   req.URL.RawQuery = val.Encode()
+   var client http.Client
+   res, err := client.Do(req)
+   if err != nil {
+      return song{}, err
+   }
+   var data song
+   json.NewDecoder(res.Body).Decode(&data)
+   return data, nil
+}
+
+type songList struct {
    Results struct {
       Data []struct { Track_Token string }
    }
 }
 
-func newSongListRes(apiToken, sid string, sngIds ...int) (songListRes, error) {
-   in, out := songListReq{sngIds}, new(bytes.Buffer)
+func newSongList(apiToken, sid string, sngIds ...int) (songList, error) {
+   in, out := map[string][]int{"SNG_IDS": sngIds}, new(bytes.Buffer)
    json.NewEncoder(out).Encode(in)
    req, err := http.NewRequest("POST", gatewayWWW, out)
    if err != nil {
-      return songListRes{}, err
+      return songList{}, err
    }
    val := url.Values{
       "api_token": {apiToken},
@@ -65,66 +89,25 @@ func newSongListRes(apiToken, sid string, sngIds ...int) (songListRes, error) {
    var client http.Client
    res, err := client.Do(req)
    if err != nil {
-      return songListRes{}, err
+      return songList{}, err
    }
-   var list songListRes
+   var list songList
    json.NewDecoder(res.Body).Decode(&list)
    return list, nil
 }
 
-type songReq struct {
-   Sng_Id int
-}
-
-type songRes struct {
-   Results struct { Track_Token string }
-}
-
-func newSongRes(apiToken, sid string, sngId int) (songRes, error) {
-   in, out := songReq{sngId}, new(bytes.Buffer)
-   json.NewEncoder(out).Encode(in)
-   req, err := http.NewRequest("POST", gatewayAPI, out)
-   if err != nil {
-      return songRes{}, err
-   }
-   val := url.Values{
-      "api_key": {apiToken},
-      "method": {"song.getData"},
-      "output": {"3"},
-      "sid": {sid},
-   }
-   req.URL.RawQuery = val.Encode()
-   var client http.Client
-   res, err := client.Do(req)
-   if err != nil {
-      return songRes{}, err
-   }
-   var song songRes
-   json.NewDecoder(res.Body).Decode(&song)
-   return song, nil
-}
-
-type trackRes struct {
+type track struct {
    Results struct {
       Data struct { MD5_Origin string }
    }
 }
 
-type urlReq struct {
-   License_Token string
-   Track_Tokens []string
-   Media []struct {
-      Type string
-      Formats []struct { Cipher, Format string }
-   }
-}
-
-func newTrackRes(apiToken, sid string, sngId int) (trackRes, error) {
-   in, out := songReq{sngId}, new(bytes.Buffer)
+func newTrack(apiToken, sid string, sngId int) (track, error) {
+   in, out := map[string]int{"SNG_ID": sngId}, new(bytes.Buffer)
    json.NewEncoder(out).Encode(in)
    req, err := http.NewRequest("POST", gatewayWWW, out)
    if err != nil {
-      return trackRes{}, err
+      return track{}, err
    }
    val := url.Values{
       "api_token": {apiToken},
@@ -137,14 +120,14 @@ func newTrackRes(apiToken, sid string, sngId int) (trackRes, error) {
    var client http.Client
    res, err := client.Do(req)
    if err != nil {
-      return trackRes{}, err
+      return track{}, err
    }
-   var track trackRes
-   json.NewDecoder(res.Body).Decode(&track)
-   return track, nil
+   var page track
+   json.NewDecoder(res.Body).Decode(&page)
+   return page, nil
 }
 
-type userRes struct {
+type user struct {
    sid string
    Results struct {
       CheckForm string
@@ -154,10 +137,10 @@ type userRes struct {
    }
 }
 
-func newUserRes(name, value string) (userRes, error) {
+func newUser(name, value string) (user, error) {
    req, err := http.NewRequest("GET", gatewayWWW, nil)
    if err != nil {
-      return userRes{}, err
+      return user{}, err
    }
    val := url.Values{
       "api_token": {""},
@@ -171,12 +154,12 @@ func newUserRes(name, value string) (userRes, error) {
    var client http.Client
    res, err := client.Do(req)
    if err != nil {
-      return userRes{}, err
+      return user{}, err
    }
-   var user userRes
+   var data user
    for _, each := range res.Cookies() {
-      if each.Name == "sid" { user.sid = each.Value }
+      if each.Name == "sid" { data.sid = each.Value }
    }
-   json.NewDecoder(res.Body).Decode(&user)
-   return user, nil
+   json.NewDecoder(res.Body).Decode(&data)
+   return data, nil
 }
