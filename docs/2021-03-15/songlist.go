@@ -1,8 +1,10 @@
 package deezer
 
 import (
-   "net/url"
+   "bytes"
    "encoding/json"
+   "net/http"
+   "net/url"
 )
 
 type songList struct {

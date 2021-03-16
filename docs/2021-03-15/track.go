@@ -1,13 +1,17 @@
 package deezer
 
 import (
+   "bytes"
    "encoding/json"
    "net/http"
+   "net/url"
 )
 
 type track struct {
    Results struct {
-      Data struct { MD5_Origin string }
+      Data struct {
+         MD5_Origin, Track_Token string
+      }
    }
 }
 

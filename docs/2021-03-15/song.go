@@ -1,8 +1,10 @@
 package deezer
 
 import (
+   "bytes"
    "encoding/json"
    "net/http"
+   "net/url"
 )
 
 type song struct {
@@ -30,8 +32,6 @@ func newSong(apiToken, sid string, sngId int) (song, error) {
    if err != nil {
       return song{}, err
    }
-   os.Stdout.ReadFrom(res.Body)
-   return song{}, nil
    var data song
    json.NewDecoder(res.Body).Decode(&data)
    return data, nil

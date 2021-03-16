@@ -16,16 +16,25 @@ func TestTrackArl(t *testing.T) {
 }
 
 func TestTrackSid(t *testing.T) {
-   p, err := newPing()
+   ping, err := newPing()
    if err != nil {
       t.Error(err)
    }
-   user, err := newUser("sid", p.Results.Session)
+   user, err := newUser("sid", ping.Results.Session)
    if err != nil {
       t.Error(err)
    }
    track, err := newTrack(user.Results.CheckForm, user.sid, felix)
    if err != nil {
       t.Error(err)
+   }
+   get, err := newGetUrl(
+      user.Results.User.Options.License_Token, track.Results.Data.Track_Token,
+   )
+   if err != nil {
+      t.Error(err)
+   }
+   if get.Data[0].Media[0].Sources[0].Url == "" {
+      t.Error()
    }
 }

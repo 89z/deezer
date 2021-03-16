@@ -3,6 +3,7 @@
 status | method
 -------|-------
 .      | album.getData
+.      | mobile.pageAlbum
 .      | song.getListByAlbum
 done   | deezer.getUserData
 done   | deezer.pageTrack

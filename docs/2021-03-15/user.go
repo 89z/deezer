@@ -1,6 +1,7 @@
 package deezer
 
 import (
+   "encoding/json"
    "net/http"
    "net/url"
 )
