@@ -17,6 +17,7 @@ type getUrl struct {
          Sources []struct { Url string }
       }
    }
+   Errors []struct { Message string }
 }
 
 func newGetUrl(licenseTok string, trackToks ...string) (getUrl, error) {
