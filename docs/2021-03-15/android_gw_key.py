@@ -1,11 +1,11 @@
 import sys
 MAGIC = b'PLTE'
-fpath = sys.argv[1]
 
-if not fpath:
-   print('Usage: android_gw_key.py [path-to-icon2.png]\n')
+if len(sys.argv) != 2:
+   print('android_gw_key.py [path-to-icon2.png]\n')
    exit()
 
+fpath = sys.argv[1]
 icon_buf = bytearray(open(fpath, 'rb').read())
 magic_idx = icon_buf.find(MAGIC)
 

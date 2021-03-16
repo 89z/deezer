@@ -60,3 +60,21 @@ mobile_userAutoLog
 Gets a song by ID
 song_getData
 ~~~
+
+Lets look at the APK again:
+
+https://apps.evozi.com/apk-downloader?id=deezer.android.app
+
+~~~
+assets/icon2.png
+~~~
+
+Result:
+
+~~~
+MOBILE_GW_KEY
+VBK1FSUEXHTSDBJJ
+
+MOBILE_API_KEY
+4VCYIJUCDLOUELGD1V8WBVYBNVDYOXEWSLLZDONGBBDFVXTZJRXPR29JRLQFO6ZE
+~~~
