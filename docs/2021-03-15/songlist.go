@@ -9,7 +9,7 @@ import (
 
 type songList struct {
    Results struct {
-      Data []struct { Track_Token string }
+      Data []struct { MD5_Origin, Track_Token string }
    }
 }
 

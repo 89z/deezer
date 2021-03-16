@@ -6,11 +6,14 @@ func TestSong(t *testing.T) {
    if err != nil {
       t.Error(err)
    }
-   s, err := newSong(user.Results.CheckForm, user.sid, felix)
+   song, err := newSong(user.Results.CheckForm, user.sid, felix)
    if err != nil {
       t.Error(err)
    }
-   if s.Results.Track_Token == "" {
+   if song.Results.MD5_Origin == "" {
+      t.Error()
+   }
+   if song.Results.Track_Token == "" {
       t.Error()
    }
 }

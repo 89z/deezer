@@ -8,7 +8,7 @@ import (
 )
 
 type song struct {
-   Results struct { Track_Token string }
+   Results struct { MD5_Origin, Track_Token string }
 }
 
 func newSong(apiToken, sid string, sngId int) (song, error) {

@@ -10,7 +10,7 @@ func TestTrackArl(t *testing.T) {
    if err != nil {
       t.Error(err)
    }
-   if track.Results.Data.MD5_Origin != "9da3d60b427e895a0f1446a76b3d1488" {
+   if track.Results.Data.MD5_Origin == "" {
       t.Error()
    }
 }
@@ -28,13 +28,7 @@ func TestTrackSid(t *testing.T) {
    if err != nil {
       t.Error(err)
    }
-   get, err := newGetUrl(
-      user.Results.User.Options.License_Token, track.Results.Data.Track_Token,
-   )
-   if err != nil {
-      t.Error(err)
-   }
-   if get.Data[0].Media[0].Sources[0].Url == "" {
+   if track.Results.Data.Track_Token == "" {
       t.Error()
    }
 }
