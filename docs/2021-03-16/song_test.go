@@ -11,9 +11,9 @@ func TestSong(t *testing.T) {
       t.Error(err)
    }
    if song.Results.MD5_Origin == "" {
-      t.Error()
+      t.Error("MD5_Origin")
    }
    if song.Results.Track_Token == "" {
-      t.Error()
+      t.Error("Track_Token")
    }
 }
