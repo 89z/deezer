@@ -4,32 +4,19 @@ session = requests.Session()
 PUBLIC_API_URL = 'https://api.deezer.com/1.0/gateway.php?'
 
 arg = {
-   'method': 'mobile_userAuth',
    'api_key': '4VCYIJUCDLOUELGD1V8WBVYBNVDYOXEWSLLZDONGBBDFVXTZJRXPR29JRLQFO6ZE',
+   'method': 'mobile_userAuth',
    'output': '3',
-   'input': '3',
-   'sid': 'frc62578edaab2637431319896cab1944a3ba637',
+   'sid': 'fr737eb0c0365971df92b1d18554382a04ab95b1',
 }
 
 body={
    'MAIL': 'srpen6@gmail.com',
-   'consent_string': ''
-   'custo_partner': '',
-   'custo_version_id': '',
-   'device_name': 'VirtualBox',
-   'device_os': 'Android',
-   'device_serial': '',
-   'device_type': 'tablet',
-   'google_play_services_availability': '1',
-   'model': 'VirtualBox',
-   'password': 'd8c44e320f3e7d2771596f56ae12e7c7',
-   'platform': 'innotek GmbH_x86_64_9',
+   'password': '78e715eb052ff77f9b92f3eb59a1360e',
 }
 
 res = session.post(
-   PUBLIC_API_URL + parse.urlencode(arg),
-   headers={'User-Agent': 'Deezer/6.1.22.49 (Android; 9; Tablet; us) innotek GmbH VirtualBox'},
-   data=json.dumps(body)
+   PUBLIC_API_URL + parse.urlencode(arg), data=json.dumps(body)
 )
 
 print(json.dumps(res.json(), indent=1))
