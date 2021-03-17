@@ -45,5 +45,3 @@ Go         | https://github.com/godeezer/lib
 Go         | https://github.com/joshbarrass/deezerdl
 Go         | https://github.com/moon004/Go-deezer-downloader
 JavaScript | https://github.com/svbnet/diezel
-Python     | https://github.com/Heartran/chimera
-Ruby       | https://github.com/staniel359/muffon-api
